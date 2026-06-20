@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MonthSelector } from "@/components/MonthSelector";
 import { formatEuro } from "@/lib/format";
 import { calendar, type DotKind } from "@/lib/mock";
@@ -47,6 +47,33 @@ export function CalendarView() {
   const { variables, charges, updateCharge } = useData();
   const { openSheet } = useQuickEntry();
   const [selected, setSelected] = useState<number | null>(calendar.today);
+
+  // Appui long sur un jour → ouvrir la saisie pré-remplie avec cette date.
+  const longPressTimer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+
+  function startLongPress(day: number) {
+    longPressed.current = false;
+    longPressTimer.current = window.setTimeout(() => {
+      longPressed.current = true;
+      setSelected(day);
+      openSheet(isoOf(day));
+    }, 450);
+  }
+  function cancelLongPress() {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+  function handleDayClick(day: number) {
+    // Si l'appui long vient de se déclencher, on ignore le clic qui suit.
+    if (longPressed.current) {
+      longPressed.current = false;
+      return;
+    }
+    setSelected(day);
+  }
 
   // Regroupe les opérations du magasin par jour (avril 2026).
   const byDay: Record<number, DayEntry[]> = {};
@@ -120,9 +147,15 @@ export function CalendarView() {
                 aria-pressed={isSelected}
                 aria-label={`${day} avril${
                   dots.length ? `, ${dots.length} opération(s)` : ""
-                }`}
-                onClick={() => setSelected(day)}
-                className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-xl text-sm transition ${
+                } — appui long pour ajouter`}
+                onClick={() => handleDayClick(day)}
+                onPointerDown={() => startLongPress(day)}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onPointerMove={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
+                className={`flex aspect-square select-none flex-col items-center justify-center gap-1 rounded-xl text-sm transition ${
                   isSelected
                     ? "bg-plum font-bold text-white"
                     : "bg-graphite/[0.04] text-graphite hover:bg-lavender/30"
@@ -144,6 +177,10 @@ export function CalendarView() {
           })}
         </div>
       </section>
+
+      <p className="-mt-2 text-center text-[11px] text-graphite/45">
+        👆 Touche un jour pour le voir · appui long pour y ajouter
+      </p>
 
       {/* Légende */}
       <section>
@@ -216,16 +253,11 @@ export function CalendarView() {
               ))}
             </>
           ) : (
-            <p className="text-xs text-graphite/50">Aucune opération ce jour-là.</p>
+            <p className="text-xs text-graphite/50">
+              Aucune opération ce jour-là. Appui long sur le {selected} avril pour
+              en ajouter une.
+            </p>
           )}
-
-          <button
-            type="button"
-            onClick={() => openSheet(isoOf(selected))}
-            className="mt-1 rounded-xl bg-plum py-2.5 text-[13px] font-bold text-white transition active:scale-[0.99]"
-          >
-            + Ajouter à cette date
-          </button>
         </section>
       )}
     </div>
