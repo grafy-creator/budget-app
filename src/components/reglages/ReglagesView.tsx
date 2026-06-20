@@ -5,10 +5,10 @@ import { EditableAmount } from "@/components/EditableAmount";
 import { formatEuro } from "@/lib/format";
 import { useData, type RuleKey } from "@/lib/store";
 
-const RULES: { key: RuleKey; label: string; bar: string }[] = [
-  { key: "besoins", label: "Charges fixes (Besoins)", bar: "bg-plum" },
-  { key: "envies", label: "Variables (Envies)", bar: "bg-violet" },
-  { key: "epargne", label: "Épargne", bar: "bg-success" },
+const RULES: { key: RuleKey; label: string; accent: string }[] = [
+  { key: "besoins", label: "Charges fixes (Besoins)", accent: "accent-plum" },
+  { key: "envies", label: "Variables (Envies)", accent: "accent-violet" },
+  { key: "epargne", label: "Épargne", accent: "accent-success" },
 ];
 
 const ICONS = ["🏠", "📺", "🎵", "📱", "💡", "🚗", "🏋️", "📦"];
@@ -17,13 +17,13 @@ const CAT_ICONS = ["🛒", "🍽️", "🚗", "💊", "🎮", "📦", "👕", "�
 /** Ligne de règle : pourcentage et montant liés (calculés sur le revenu cible). */
 function RuleRow({
   label,
-  bar,
+  accent,
   pct,
   revenu,
   onChangePct,
 }: {
   label: string;
-  bar: string;
+  accent: string;
   pct: number;
   revenu: number;
   onChangePct: (pct: number) => void;
@@ -81,9 +81,15 @@ function RuleRow({
           </span>
         </div>
       </div>
-      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-graphite/10">
-        <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
-      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={pct}
+        onChange={(e) => onChangePct(Number(e.target.value))}
+        aria-label={`Curseur ${label}`}
+        className={`mt-2 h-2 w-full cursor-pointer ${accent}`}
+      />
     </div>
   );
 }
@@ -243,7 +249,7 @@ export function ReglagesView() {
             <RuleRow
               key={r.key}
               label={r.label}
-              bar={r.bar}
+              accent={r.accent}
               pct={pctByKey[r.key]}
               revenu={settings.revenuCible}
               onChangePct={(pct) => setRulePct(r.key, pct)}

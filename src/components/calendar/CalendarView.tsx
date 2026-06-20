@@ -4,6 +4,8 @@ import { useState } from "react";
 import { MonthSelector } from "@/components/MonthSelector";
 import { formatEuro } from "@/lib/format";
 import { calendar, type DotKind } from "@/lib/mock";
+import { useData } from "@/lib/store";
+import { useQuickEntry } from "@/lib/quickEntry";
 
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -19,17 +21,73 @@ const LEGEND: { kind: DotKind; label: string }[] = [
   { kind: "echeance", label: "Échéance à venir aujourd'hui" },
 ];
 
-export function CalendarView() {
-  const [selected, setSelected] = useState<number | null>(calendar.today);
-  const [paid, setPaid] = useState<Record<string, boolean>>({});
+const MONTH_PREFIX = "2026-04";
+const isoOf = (day: number) => `${MONTH_PREFIX}-${String(day).padStart(2, "0")}`;
 
-  const leading = calendar.firstWeekday - 1; // cellules vides avant le 1er
+type DayEntry = {
+  id: string;
+  icon: string;
+  label: string;
+  kind: "fixe" | "variable";
+  amount: number;
+  paid?: boolean;
+  dot: DotKind;
+};
+
+function parseAprilDay(iso: string): number | null {
+  const m = iso.match(/^2026-04-(\d{2})$/);
+  return m ? Number(m[1]) : null;
+}
+function parseDayOfMonth(text: string): number | null {
+  const m = text.match(/\d+/);
+  return m ? Number(m[0]) : null;
+}
+
+export function CalendarView() {
+  const { variables, charges, updateCharge } = useData();
+  const { openSheet } = useQuickEntry();
+  const [selected, setSelected] = useState<number | null>(calendar.today);
+
+  // Regroupe les opérations du magasin par jour (avril 2026).
+  const byDay: Record<number, DayEntry[]> = {};
+  const push = (day: number, e: DayEntry) => {
+    (byDay[day] ??= []).push(e);
+  };
+  for (const v of variables) {
+    const d = parseAprilDay(v.date);
+    if (d)
+      push(d, {
+        id: v.id,
+        icon: v.icon,
+        label: v.label,
+        kind: "variable",
+        amount: v.amount,
+        dot: "variable",
+      });
+  }
+  for (const c of charges) {
+    const d = parseDayOfMonth(c.day);
+    if (d) {
+      const echeance = !c.paid && d === calendar.today;
+      push(d, {
+        id: c.id,
+        icon: c.icon,
+        label: c.label,
+        kind: "fixe",
+        amount: c.amount,
+        paid: c.paid,
+        dot: echeance ? "echeance" : "fixe",
+      });
+    }
+  }
+
+  const leading = calendar.firstWeekday - 1;
   const cells: (number | null)[] = [
     ...Array.from({ length: leading }, () => null),
     ...Array.from({ length: calendar.daysInMonth }, (_, i) => i + 1),
   ];
 
-  const dayItems = selected ? calendar.details[selected] ?? [] : [];
+  const dayItems = selected ? byDay[selected] ?? [] : [];
   const dayTotal = dayItems.reduce((s, it) => s + it.amount, 0);
 
   return (
@@ -53,14 +111,12 @@ export function CalendarView() {
         <div className="grid grid-cols-7 gap-1">
           {cells.map((day, i) => {
             if (day === null) return <span key={`e${i}`} />;
-            const dots = calendar.markers[day] ?? [];
-            const hasDetail = Boolean(calendar.details[day]);
+            const dots = (byDay[day] ?? []).map((e) => e.dot);
             const isSelected = selected === day;
             return (
               <button
                 key={day}
                 type="button"
-                disabled={!hasDetail}
                 aria-pressed={isSelected}
                 aria-label={`${day} avril${
                   dots.length ? `, ${dots.length} opération(s)` : ""
@@ -69,12 +125,12 @@ export function CalendarView() {
                 className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-xl text-sm transition ${
                   isSelected
                     ? "bg-plum font-bold text-white"
-                    : "bg-graphite/[0.04] text-graphite enabled:hover:bg-lavender/30"
-                } ${!hasDetail ? "cursor-default" : ""}`}
+                    : "bg-graphite/[0.04] text-graphite hover:bg-lavender/30"
+                }`}
               >
                 <span>{day}</span>
                 <span className="flex h-1.5 items-center gap-0.5">
-                  {dots.map((kind, k) => (
+                  {dots.slice(0, 3).map((kind, k) => (
                     <span
                       key={k}
                       className={`size-1.5 rounded-full ${
@@ -105,65 +161,72 @@ export function CalendarView() {
       </section>
 
       {/* Panneau du jour sélectionné */}
-      {selected && dayItems.length > 0 ? (
+      {selected && (
         <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-graphite">
-              📅 {selected} avril
-            </h2>
-            <span className="rounded-full bg-lavender/30 px-2.5 py-1 text-[11px] font-bold text-plum">
-              {dayItems.length} op.
-            </span>
+            <h2 className="text-sm font-bold text-graphite">📅 {selected} avril</h2>
+            {dayItems.length > 0 && (
+              <span className="rounded-full bg-lavender/30 px-2.5 py-1 text-[11px] font-bold text-plum">
+                {dayItems.length} op.
+              </span>
+            )}
           </div>
-          <p className="text-xs text-graphite/55">
-            Total du jour : {formatEuro(dayTotal)}
-          </p>
 
-          {dayItems.map((it, idx) => {
-            const key = `${selected}-${idx}`;
-            const isPaid = paid[key] ?? it.paid;
-            return (
-              <div key={key} className="flex items-center gap-3">
-                <span
-                  className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lavender/30 text-xl"
-                  aria-hidden
-                >
-                  {it.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-graphite">
-                    {it.label}
-                  </p>
-                  <span className="text-[11px] text-graphite/55">
-                    {it.kind === "fixe" ? "Charge fixe" : "Dépense variable"}
+          {dayItems.length > 0 ? (
+            <>
+              <p className="text-xs text-graphite/55">
+                Total du jour : {formatEuro(dayTotal)}
+              </p>
+              {dayItems.map((it) => (
+                <div key={it.id} className="flex items-center gap-3">
+                  <span
+                    className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lavender/30 text-xl"
+                    aria-hidden
+                  >
+                    {it.icon}
                   </span>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-sm font-bold text-graphite">
-                    {formatEuro(it.amount)}
-                  </span>
-                  {isPaid ? (
-                    <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">
-                      Payé
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-graphite">
+                      {it.label}
+                    </p>
+                    <span className="text-[11px] text-graphite/55">
+                      {it.kind === "fixe" ? "Charge fixe" : "Dépense variable"}
                     </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPaid((p) => ({ ...p, [key]: true }))}
-                      className="rounded-full bg-success px-3 py-1 text-[11px] font-bold text-white transition active:scale-95"
-                    >
-                      Payer
-                    </button>
-                  )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="text-sm font-bold text-graphite">
+                      {formatEuro(it.amount)}
+                    </span>
+                    {it.kind === "fixe" &&
+                      (it.paid ? (
+                        <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">
+                          Payé
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => updateCharge(it.id, { paid: true })}
+                          className="rounded-full bg-success px-3 py-1 text-[11px] font-bold text-white transition active:scale-95"
+                        >
+                          Payer
+                        </button>
+                      ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              ))}
+            </>
+          ) : (
+            <p className="text-xs text-graphite/50">Aucune opération ce jour-là.</p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => openSheet(isoOf(selected))}
+            className="mt-1 rounded-xl bg-plum py-2.5 text-[13px] font-bold text-white transition active:scale-[0.99]"
+          >
+            + Ajouter à cette date
+          </button>
         </section>
-      ) : (
-        <p className="rounded-xl bg-lavender/25 px-3.5 py-3 text-xs font-medium text-plum">
-          👆 Appuie sur un jour marqué pour voir le détail
-        </p>
       )}
     </div>
   );

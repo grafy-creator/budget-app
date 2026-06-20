@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TODAY_ISO } from "@/lib/format";
 import { useData } from "@/lib/store";
+import { useQuickEntry } from "@/lib/quickEntry";
 
 const TYPES = [
   { id: "depense", icon: "💸", label: "Dépense" },
@@ -22,7 +23,7 @@ export function QuickEntry() {
     addContribution,
   } = useData();
 
-  const [open, setOpen] = useState(false);
+  const { open, initialDate, openSheet, closeSheet } = useQuickEntry();
   const [type, setType] = useState<TypeId>("depense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -43,18 +44,19 @@ export function QuickEntry() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeSheet();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, closeSheet]);
 
   useEffect(() => {
     if (open) {
+      setDate(initialDate ?? TODAY_ISO);
       const t = setTimeout(() => amountRef.current?.focus(), 250);
       return () => clearTimeout(t);
     }
-  }, [open]);
+  }, [open, initialDate]);
 
   // Pré-sélectionne la 1ère nature de revenu.
   useEffect(() => {
@@ -109,7 +111,7 @@ export function QuickEntry() {
 
     setDone(true);
     setTimeout(() => {
-      setOpen(false);
+      closeSheet();
       setTimeout(reset, 250);
     }, 900);
   }
@@ -121,7 +123,7 @@ export function QuickEntry() {
         aria-label="Ajouter une transaction"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onClick={() => openSheet()}
         className="absolute bottom-[88px] right-5 z-30 flex size-14 items-center justify-center rounded-full bg-plum text-3xl font-bold leading-none text-white shadow-lg shadow-plum/30 transition active:scale-95"
       >
         <span className="-mt-1" aria-hidden>
@@ -130,7 +132,7 @@ export function QuickEntry() {
       </button>
 
       <div
-        onClick={() => setOpen(false)}
+        onClick={closeSheet}
         aria-hidden
         className={`absolute inset-0 z-40 bg-graphite/40 transition-opacity duration-200 ${
           open ? "opacity-100" : "pointer-events-none opacity-0"

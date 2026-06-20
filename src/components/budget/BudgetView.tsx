@@ -18,6 +18,16 @@ type ExpenseForm = {
   date: string;
 };
 
+const CHARGE_ICONS = ["🏠", "📺", "🎵", "📱", "💡", "🚗", "🏋️", "📦"];
+
+type ChargeForm = {
+  id: string | null;
+  icon: string;
+  label: string;
+  day: string;
+  amount: string;
+};
+
 function SummaryBar({
   label,
   spent,
@@ -53,12 +63,49 @@ export function BudgetView() {
     charges,
     variables,
     categories,
+    addCharge,
     updateCharge,
+    removeCharge,
     addVariable,
     updateVariable,
     removeVariable,
   } = useData();
   const [expenseForm, setExpenseForm] = useState<ExpenseForm | null>(null);
+  const [chargeForm, setChargeForm] = useState<ChargeForm | null>(null);
+
+  function openNewCharge() {
+    setChargeForm({
+      id: null,
+      icon: "🏠",
+      label: "",
+      day: "Le 1er du mois",
+      amount: "",
+    });
+  }
+  function openEditCharge(id: string) {
+    const c = charges.find((x) => x.id === id);
+    if (!c) return;
+    setChargeForm({
+      id: c.id,
+      icon: c.icon,
+      label: c.label,
+      day: c.day,
+      amount: String(c.amount),
+    });
+  }
+  function saveCharge() {
+    if (!chargeForm || !chargeForm.label.trim()) return;
+    const amount = parseFloat(chargeForm.amount.replace(",", ".")) || 0;
+    const data = {
+      icon: chargeForm.icon,
+      label: chargeForm.label.trim(),
+      day: chargeForm.day.trim(),
+      amount,
+    };
+    if (chargeForm.id) updateCharge(chargeForm.id, data);
+    else addCharge({ ...data, paid: false });
+    setChargeForm(null);
+  }
 
   function openNewExpense() {
     setExpenseForm({
@@ -153,6 +200,25 @@ export function BudgetView() {
             <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
               Charges fixes
             </h2>
+
+            {!chargeForm && (
+              <button
+                type="button"
+                onClick={openNewCharge}
+                className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+              >
+                + Ajouter une charge fixe
+              </button>
+            )}
+
+            {chargeForm && (
+              <ChargeFormPanel
+                form={chargeForm}
+                setForm={setChargeForm}
+                onSave={saveCharge}
+              />
+            )}
+
             {charges.map((c) => (
               <div
                 key={c.id}
@@ -160,18 +226,27 @@ export function BudgetView() {
                   c.paid ? "bg-success/5" : "bg-white"
                 }`}
               >
-                <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-                  aria-hidden
+                <button
+                  type="button"
+                  onClick={() => openEditCharge(c.id)}
+                  aria-label={`Modifier ${c.label}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  {c.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-graphite">
-                    {c.label}
-                  </p>
-                  <p className="truncate text-[11px] text-graphite/55">{c.day}</p>
-                </div>
+                  <span
+                    className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                    aria-hidden
+                  >
+                    {c.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-graphite">
+                      {c.label}
+                    </span>
+                    <span className="block truncate text-[11px] text-graphite/55">
+                      {c.day}
+                    </span>
+                  </span>
+                </button>
                 <EditableAmount
                   value={c.amount}
                   onCommit={(n) => updateCharge(c.id, { amount: n })}
@@ -194,6 +269,14 @@ export function BudgetView() {
                   }`}
                 >
                   {c.paid ? "✓" : "○"}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Supprimer ${c.label}`}
+                  onClick={() => removeCharge(c.id)}
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
+                >
+                  ✕
                 </button>
               </div>
             ))}
@@ -597,10 +680,19 @@ function IncomeFormPanel({
 
 /** Onglet Épargne : versements du mois par compte (objectif vs réel). */
 function EpargneTab() {
-  const { accounts, updateAccount } = useData();
+  const { accounts, updateAccount, addContribution } = useData();
+  const [versementFor, setVersementFor] = useState<string | null>(null);
+  const [versementAmt, setVersementAmt] = useState("");
   const actual = accounts.reduce((s, a) => s + a.added, 0);
   const target = mockBudget.savingsBudget;
   const pct = Math.min(100, Math.round((actual / target) * 100));
+
+  function commitVersement(id: string) {
+    const n = parseFloat(versementAmt.replace(",", ".")) || 0;
+    if (n > 0) addContribution(id, n);
+    setVersementFor(null);
+    setVersementAmt("");
+  }
 
   return (
     <>
@@ -637,29 +729,72 @@ function EpargneTab() {
         {accounts.map((a) => (
           <div
             key={a.id}
-            className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+            className="flex flex-col gap-2 rounded-xl bg-white p-2.5 shadow-sm"
           >
-            <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-              aria-hidden
-            >
-              {a.icon}
-            </span>
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
-              {a.label}
-            </p>
-            <EditableAmount
-              value={a.added}
-              onCommit={(n) =>
-                updateAccount(a.id, {
-                  added: n,
-                  balance: a.balance - a.added + n,
-                })
-              }
-              sign="plus"
-              ariaLabel={`Versement ${a.label}`}
-              className="shrink-0 text-sm font-bold text-plum"
-            />
+            <div className="flex items-center gap-3">
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                aria-hidden
+              >
+                {a.icon}
+              </span>
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+                {a.label}
+              </p>
+              <EditableAmount
+                value={a.added}
+                onCommit={(n) =>
+                  updateAccount(a.id, {
+                    added: n,
+                    balance: a.balance - a.added + n,
+                  })
+                }
+                sign="plus"
+                ariaLabel={`Versement du mois ${a.label}`}
+                className="shrink-0 text-sm font-bold text-plum"
+              />
+            </div>
+
+            {versementFor === a.id ? (
+              <div className="flex items-center gap-2">
+                <div className="flex flex-1 items-center gap-1 rounded-lg bg-graphite/5 px-3 py-1.5">
+                  <input
+                    autoFocus
+                    inputMode="decimal"
+                    value={versementAmt}
+                    onChange={(e) =>
+                      setVersementAmt(e.target.value.replace(/[^0-9.,]/g, ""))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitVersement(a.id);
+                      if (e.key === "Escape") setVersementFor(null);
+                    }}
+                    placeholder="Montant à ajouter"
+                    aria-label="Montant du versement"
+                    className="w-full bg-transparent text-sm font-bold text-graphite outline-none"
+                  />
+                  <span className="text-sm font-bold text-graphite">€</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => commitVersement(a.id)}
+                  className="rounded-lg bg-plum px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  Ajouter
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setVersementFor(a.id);
+                  setVersementAmt("");
+                }}
+                className="self-start text-[11px] font-semibold text-plum"
+              >
+                + Ajouter un versement
+              </button>
+            )}
           </div>
         ))}
       </section>
@@ -753,6 +888,84 @@ function ExpenseFormPanel({
           type="button"
           onClick={onSave}
           className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white"
+        >
+          {form.id ? "Enregistrer" : "Ajouter"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Formulaire d'ajout / modification d'une charge fixe (synchronisé avec Réglages). */
+function ChargeFormPanel({
+  form,
+  setForm,
+  onSave,
+}: {
+  form: ChargeForm;
+  setForm: (f: ChargeForm | null) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
+      <div className="flex flex-wrap gap-1">
+        {CHARGE_ICONS.map((ic) => (
+          <button
+            key={ic}
+            type="button"
+            onClick={() => setForm({ ...form, icon: ic })}
+            aria-label={`Icône ${ic}`}
+            aria-pressed={form.icon === ic}
+            className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
+              form.icon === ic ? "bg-lavender/60" : "bg-white"
+            }`}
+          >
+            {ic}
+          </button>
+        ))}
+      </div>
+      <input
+        value={form.label}
+        onChange={(e) => setForm({ ...form, label: e.target.value })}
+        placeholder="Nom (ex : Assurance)"
+        aria-label="Nom de la charge"
+        className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+      />
+      <div className="flex gap-2">
+        <input
+          value={form.day}
+          onChange={(e) => setForm({ ...form, day: e.target.value })}
+          placeholder="Le 1er du mois"
+          aria-label="Échéance"
+          className="min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+        />
+        <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+          <input
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) =>
+              setForm({ ...form, amount: e.target.value.replace(/[^0-9.,]/g, "") })
+            }
+            placeholder="0"
+            aria-label="Montant"
+            className="w-16 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+          />
+          <span className="text-sm font-bold text-graphite">€</span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setForm(null)}
+          className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!form.label.trim()}
+          className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
         >
           {form.id ? "Enregistrer" : "Ajouter"}
         </button>
