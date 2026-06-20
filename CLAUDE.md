@@ -72,12 +72,12 @@ Maquette : frames de **390 × 844**. 5 onglets de navigation basse + 1 feuille m
 6. **06 — Saisie rapide** (bottom sheet modale) : sélecteur de type (dépense / revenu / …) ; saisie du montant ; grille de catégories (6) ; bouton valider. **Cible : < 3 taps, < 10 s.**
 7. **07a / 07b — Calendrier** : calendrier mensuel avec pastilles sur les jours à transactions + légende ; vue « jour sélectionné » détaillant les dépenses du jour (statut payé/à venir, bouton Payer).
 
-> **État de l'intégration (au 2026-06-20)** : écrans **01 à 06 implémentés** (UI + données d'exemple `src/lib/mock.ts`, charte Rin Studio). Reste : **07 Calendrier** (non implémenté), branchement Supabase, auth.
+> **État de l'intégration (au 2026-06-20)** : **tous les écrans 01 à 07 implémentés** (UI + données d'exemple `src/lib/mock.ts`, charte Rin Studio) + page `/login` + schéma `docs/schema.sql`. Reste : **branchement Supabase** (données réelles + auth) — en attente de la création du projet Supabase par Rin.
 >
 > **Divergences maquette ↔ CDC — suivi** :
 > - ~~Toggle notifications~~ → **résolu** : la maquette l'intitule « Rappel quotidien » = **rappel local** (pas de push), conforme au WON'T V1. Implémenté comme préférence locale (toggle UI).
-> - **Calendrier (07a/07b)** : présent dans la maquette, **non priorisé** MoSCoW → statut à confirmer avec Rin avant implémentation (probable COULD/SHOULD).
-> - **Règle de répartition (50/30/20)** : implémentée dans Réglages (affichage). À confirmer si elle doit piloter réellement le budget (calculs) ou rester indicative.
+> - ~~Calendrier (07)~~ → **décidé par Rin (2026-06-20) : à construire** ; implémenté à `/calendrier` (accès via l'icône 📅 de l'écran Aujourd'hui).
+> - **Règle de répartition (50/30/20)** : implémentée dans Réglages (affichage indicatif). À confirmer si elle doit piloter réellement les calculs de budget.
 
 > ⚠️ Important : la maquette Figma utilise une palette générique (slate/bleu/vert, Inter) **différente** de la charte. Décision de Rin : **suivre la charte Rin Studio du CDC** (couleurs §3 + Cabinet Grotesk/Satoshi), en reprenant la structure des écrans Figma. Mapping appliqué : carte solde→Plum, revenus/positif→Succès, dépenses→Soft Violet, épargne→Plum, FAB/actions→Plum.
 

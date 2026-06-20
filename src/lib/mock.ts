@@ -161,3 +161,47 @@ export const bilan = {
   ],
   unallocated: 1050,
 };
+
+export type DotKind = "fixe" | "variable" | "echeance";
+
+export type DayItem = {
+  icon: string;
+  label: string;
+  kind: "fixe" | "variable";
+  amount: number;
+  paid: boolean;
+};
+
+export const calendar = {
+  monthLabel: "Avril 2026",
+  daysInMonth: 30,
+  firstWeekday: 3, // 1 = lundi … 7 = dimanche ; avril 2026 démarre un mercredi
+  today: 10,
+  // Pastilles affichées sur chaque jour.
+  markers: {
+    1: ["fixe"],
+    3: ["variable"],
+    5: ["variable"],
+    9: ["variable"],
+    10: ["echeance", "fixe"],
+    15: ["fixe"],
+    18: ["variable"],
+    22: ["variable"],
+    28: ["variable"],
+  } as Record<number, DotKind[]>,
+  // Détail par jour (panneau « jour sélectionné »).
+  details: {
+    1: [{ icon: "🏠", label: "Loyer", kind: "fixe", amount: 800, paid: true }],
+    3: [{ icon: "🛒", label: "Courses", kind: "variable", amount: 85, paid: true }],
+    5: [{ icon: "🍽️", label: "Restaurant", kind: "variable", amount: 42, paid: true }],
+    9: [{ icon: "🎮", label: "Jeu vidéo", kind: "variable", amount: 25, paid: true }],
+    10: [
+      { icon: "📺", label: "Netflix", kind: "fixe", amount: 13.99, paid: false },
+      { icon: "🎵", label: "Spotify", kind: "fixe", amount: 9.99, paid: false },
+    ],
+    15: [{ icon: "📱", label: "Téléphone", kind: "fixe", amount: 20, paid: false }],
+    18: [{ icon: "🍽️", label: "Restaurant", kind: "variable", amount: 38, paid: true }],
+    22: [{ icon: "🛒", label: "Courses", kind: "variable", amount: 64, paid: true }],
+    28: [{ icon: "🚗", label: "Essence", kind: "variable", amount: 50, paid: true }],
+  } as Record<number, DayItem[]>,
+};
