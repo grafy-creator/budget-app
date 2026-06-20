@@ -165,7 +165,7 @@ public/
 docs/                       # CDC + lien maquette (sources de référence)
 ```
 
-> **Données** : tous les écrans sont alimentés par `src/lib/mock.ts` (données d'exemple) en attendant le branchement Supabase. L'app est **présentationnelle** pour l'instant.
+> **Données** : magasin **en mémoire** `src/lib/store.tsx` (`DataProvider` + `useData()`), initialisé depuis `src/lib/mock.ts`. Les écrans lisent/écrivent ce magasin → ajouts et modifications (montants via `EditableAmount`, charges, comptes, versements, saisie rapide) se reflètent partout **pendant la session**. ⚠️ **Non persistant** : tout est réinitialisé au rechargement de la page. À remplacer par Supabase pour la persistance. Bilan et Calendrier restent en lecture sur `mock.ts` (rapports).
 
 **Décisions d'architecture (init) :**
 - **PWA sans plugin webpack.** Next 16 utilise Turbopack par défaut ; les plugins type `next-pwa` (webpack) ne sont pas fiables. On utilise donc le `manifest.ts` natif de Next + un service worker écrit à la main (`public/sw.js`) → compatible tout bundler, couvre l'« offline basique » du CDC. Évolution possible : Serwist.

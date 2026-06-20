@@ -56,6 +56,7 @@ export type FixedCharge = {
   amount: number;
   icon: string;
   paid: boolean;
+  dueToday?: boolean; // affichée sur l'écran « Aujourd'hui »
 };
 
 export type VariableExpense = {
@@ -75,8 +76,8 @@ export const budget = {
   variableSpent: 420,
   fixedCharges: [
     { id: "loyer", label: "Loyer", day: "Le 1er du mois", amount: 800, icon: "🏠", paid: true },
-    { id: "netflix", label: "Netflix", day: "Le 10 du mois", amount: 13.99, icon: "📺", paid: false },
-    { id: "spotify", label: "Spotify", day: "Le 10 du mois", amount: 9.99, icon: "🎵", paid: false },
+    { id: "netflix", label: "Netflix", day: "Le 10 du mois", amount: 13.99, icon: "📺", paid: false, dueToday: true },
+    { id: "spotify", label: "Spotify", day: "Le 10 du mois", amount: 9.99, icon: "🎵", paid: false, dueToday: true },
     { id: "telephone", label: "Téléphone", day: "Le 15 du mois", amount: 20, icon: "📱", paid: true },
   ] satisfies FixedCharge[],
   variableExpenses: [

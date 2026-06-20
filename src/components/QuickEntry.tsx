@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useData } from "@/lib/store";
 
 const TYPES = [
   { id: "depense", icon: "💸", label: "Dépense" },
@@ -20,27 +21,35 @@ const CATEGORIES = [
 type TypeId = (typeof TYPES)[number]["id"];
 
 export function QuickEntry() {
+  const { accounts, addVariable, addIncome, addContribution } = useData();
+
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<TypeId>("depense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [subtype, setSubtype] = useState<"fixe" | "freelance">("freelance");
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [date, setDate] = useState("10 avr");
+  const [note, setNote] = useState("");
   const [done, setDone] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
 
   const amountValue = parseFloat(amount.replace(",", "."));
-  const canSubmit = !done && amountValue > 0 && (type !== "depense" || category);
+  const canSubmit =
+    !done &&
+    amountValue > 0 &&
+    (type !== "depense" || category) &&
+    (type !== "epargne" || accountId);
 
-  // Fermeture à la touche Échap.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Focus sur le montant à l'ouverture (saisie rapide).
   useEffect(() => {
     if (open) {
       const t = setTimeout(() => amountRef.current?.focus(), 250);
@@ -48,31 +57,57 @@ export function QuickEntry() {
     }
   }, [open]);
 
+  // Pré-sélectionne le 1er compte pour un versement d'épargne.
+  useEffect(() => {
+    if (type === "epargne" && !accountId && accounts[0]) {
+      setAccountId(accounts[0].id);
+    }
+  }, [type, accountId, accounts]);
+
   function reset() {
     setType("depense");
     setAmount("");
     setCategory(null);
+    setSubtype("freelance");
+    setAccountId(null);
+    setDate("10 avr");
+    setNote("");
     setDone(false);
-  }
-
-  function close() {
-    setOpen(false);
   }
 
   function submit() {
     if (!canSubmit) return;
-    // TODO: persister la transaction via Supabase.
+
+    if (type === "depense") {
+      const cat = CATEGORIES.find((c) => c.id === category)!;
+      addVariable({
+        label: note.trim() || cat.label,
+        date: date.trim() || "—",
+        amount: amountValue,
+        icon: cat.icon,
+      });
+    } else if (type === "revenu") {
+      addIncome({
+        label: note.trim() || (subtype === "fixe" ? "Salaire" : "Freelance"),
+        source: note.trim() || "—",
+        date: date.trim() || "—",
+        amount: amountValue,
+        subtype,
+        icon: subtype === "fixe" ? "🎓" : "💻",
+      });
+    } else if (type === "epargne" && accountId) {
+      addContribution(accountId, amountValue);
+    }
+
     setDone(true);
     setTimeout(() => {
-      close();
-      // Laisse l'animation de fermeture se jouer avant le reset.
+      setOpen(false);
       setTimeout(reset, 250);
     }, 900);
   }
 
   return (
     <>
-      {/* Bouton d'action flottant (+) */}
       <button
         type="button"
         aria-label="Ajouter une transaction"
@@ -86,21 +121,19 @@ export function QuickEntry() {
         </span>
       </button>
 
-      {/* Voile */}
       <div
-        onClick={close}
+        onClick={() => setOpen(false)}
         aria-hidden
         className={`absolute inset-0 z-40 bg-graphite/40 transition-opacity duration-200 ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
 
-      {/* Feuille modale */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Saisie rapide d'une transaction"
-        className={`absolute inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-5 shadow-2xl transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 bottom-0 z-50 max-h-[90%] overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl transition-transform duration-300 ease-out ${
           open ? "translate-y-0" : "pointer-events-none translate-y-full"
         }`}
       >
@@ -154,9 +187,7 @@ export function QuickEntry() {
                 ref={amountRef}
                 inputMode="decimal"
                 value={amount}
-                onChange={(e) =>
-                  setAmount(e.target.value.replace(/[^0-9.,]/g, ""))
-                }
+                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,]/g, ""))}
                 placeholder="0"
                 aria-label="Montant en euros"
                 className="w-32 bg-transparent text-right font-display text-3xl font-extrabold text-graphite outline-none placeholder:text-graphite/30"
@@ -166,7 +197,32 @@ export function QuickEntry() {
               </span>
             </div>
 
-            {/* Catégories (pour une dépense) */}
+            {/* Date + note (tous types) */}
+            <div className="mt-3 flex flex-col gap-2">
+              <label className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2.5">
+                <span className="text-xs font-semibold text-graphite/50">Date</span>
+                <input
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  placeholder="ex : 10 avril"
+                  aria-label="Date"
+                  className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none"
+                />
+              </label>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={
+                  type === "revenu"
+                    ? "Note / client (ex : Studio Rin)"
+                    : "Note (optionnel)"
+                }
+                aria-label="Note"
+                className="rounded-xl bg-graphite/5 px-3 py-2.5 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+              />
+            </div>
+
+            {/* Catégories (dépense) */}
             {type === "depense" && (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => {
@@ -194,6 +250,56 @@ export function QuickEntry() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Type de revenu (revenu) */}
+            {type === "revenu" && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {(["fixe", "freelance"] as const).map((st) => {
+                  const active = subtype === st;
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setSubtype(st)}
+                      className={`rounded-xl py-2.5 text-sm font-bold transition ${
+                        active ? "bg-lavender/40 text-plum" : "bg-graphite/5 text-graphite/60"
+                      }`}
+                    >
+                      {st === "fixe" ? "Fixe (alternance)" : "Freelance"}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Compte (épargne) */}
+            {type === "epargne" && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {accounts.map((a) => {
+                  const active = accountId === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setAccountId(a.id)}
+                      className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                        active ? "bg-lavender/40 text-plum" : "bg-graphite/5 text-graphite/60"
+                      }`}
+                    >
+                      <span aria-hidden>{a.icon}</span>
+                      {a.label}
+                    </button>
+                  );
+                })}
+                {accounts.length === 0 && (
+                  <p className="text-xs text-graphite/50">
+                    Crée d&apos;abord un compte dans l&apos;onglet Épargne.
+                  </p>
+                )}
               </div>
             )}
 
