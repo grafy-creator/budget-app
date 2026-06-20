@@ -84,3 +84,49 @@ export const budget = {
     { id: "restaurant", label: "Restaurant", date: "5 avr", amount: 42, icon: "🍽️" },
   ] satisfies VariableExpense[],
 };
+
+export type SavingsAccount = {
+  id: string;
+  label: string;
+  icon: string;
+  badge?: string;
+  before: number;
+  added: number;
+  balance: number;
+  goal: number;
+  projection: string;
+};
+
+export const savings = {
+  monthLabel: "Avril 2026",
+  total: 4400,
+  accounts: [
+    {
+      id: "livret-a",
+      label: "Livret A",
+      icon: "🐷",
+      badge: "Principal",
+      before: 2400,
+      added: 200,
+      balance: 2600,
+      goal: 5000,
+      projection: "Dans 13 mois à ce rythme (mai 2027)",
+    },
+    {
+      id: "pel",
+      label: "PEL",
+      icon: "🏦",
+      before: 1700,
+      added: 100,
+      balance: 1800,
+      goal: 5000,
+      projection: "Dans 32 mois à ce rythme",
+    },
+  ] satisfies SavingsAccount[],
+  simulator: {
+    monthly: 300,
+    target: 5000,
+    eta: "8 mois (jan. 2027)",
+    saved: "5 mois de gagnés",
+  },
+};
