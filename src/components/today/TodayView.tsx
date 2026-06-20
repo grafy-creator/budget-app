@@ -2,7 +2,7 @@
 
 import { EditableAmount } from "@/components/EditableAmount";
 import { formatEuro } from "@/lib/format";
-import { today } from "@/lib/mock";
+import { today, budget as mockBudget } from "@/lib/mock";
 import { useData } from "@/lib/store";
 
 function SummaryRow({
@@ -22,7 +22,7 @@ function SummaryRow({
   barClass: string;
   amountClass: string;
 }) {
-  const pct = Math.min(100, Math.round((value / total) * 100));
+  const pct = Math.min(100, Math.round((value / (total || 1)) * 100));
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
@@ -48,8 +48,20 @@ function SummaryRow({
 }
 
 export function TodayView() {
-  const { charges, updateCharge } = useData();
-  const { month } = today;
+  const { charges, variables, income, accounts, settings, updateCharge } =
+    useData();
+
+  // « Ce mois-ci » dérivé du magasin (se met à jour avec les saisies/réglages).
+  const month = {
+    income: income.reduce((s, r) => s + r.amount, 0),
+    expenses:
+      charges.reduce((s, c) => s + c.amount, 0) +
+      variables.reduce((s, v) => s + v.amount, 0),
+    savings: accounts.reduce((s, a) => s + a.added, 0),
+    incomeTarget: settings.revenuCible,
+    expensesBudget: mockBudget.fixedBudget + mockBudget.variableBudget,
+    savingsTarget: mockBudget.savingsBudget,
+  };
 
   const dueToday = charges.filter((c) => c.dueToday);
   const outflow = dueToday

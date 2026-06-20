@@ -139,6 +139,16 @@ export function ReglagesView() {
   } = useData();
 
   const [revenuDraft, setRevenuDraft] = useState(String(settings.revenuCible));
+  const [revenuSaved, setRevenuSaved] = useState(false);
+  const revenuDirty =
+    (parseInt(revenuDraft || "0", 10) || 0) !== settings.revenuCible;
+
+  function commitRevenu() {
+    setRevenuCible(parseInt(revenuDraft || "0", 10) || 0);
+    setRevenuSaved(true);
+    window.setTimeout(() => setRevenuSaved(false), 1600);
+  }
+
   const [form, setForm] = useState<FormState | null>(null);
   const [catForm, setCatForm] = useState<{
     id: string | null;
@@ -220,24 +230,49 @@ export function ReglagesView() {
       {/* Revenu cible */}
       <section className="flex flex-col gap-2">
         <SectionTitle>Mon revenu cible</SectionTitle>
-        <div className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
-          <span className="text-2xl" aria-hidden>
-            💰
-          </span>
-          <div className="flex flex-1 items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
-            <input
-              inputMode="numeric"
-              value={revenuDraft}
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^0-9]/g, "");
-                setRevenuDraft(v);
-                setRevenuCible(parseInt(v || "0", 10));
-              }}
-              aria-label="Revenu mensuel cible en euros"
-              className="w-full bg-transparent font-display text-xl font-extrabold text-success outline-none"
-            />
-            <span className="font-display text-xl font-extrabold text-success">€</span>
+        <div className="flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl" aria-hidden>
+              💰
+            </span>
+            <div className="flex flex-1 items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
+              <input
+                inputMode="numeric"
+                value={revenuDraft}
+                onChange={(e) =>
+                  setRevenuDraft(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commitRevenu();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                aria-label="Revenu mensuel cible en euros"
+                className="w-full bg-transparent font-display text-xl font-extrabold text-success outline-none"
+              />
+              <span className="font-display text-xl font-extrabold text-success">
+                €
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={commitRevenu}
+              disabled={!revenuDirty}
+              className="shrink-0 rounded-lg bg-plum px-4 py-2 text-sm font-bold text-white transition active:scale-95 disabled:opacity-40"
+            >
+              Valider
+            </button>
           </div>
+          {revenuSaved ? (
+            <p className="text-[11px] font-semibold text-success">
+              ✓ Revenu cible enregistré — répercuté sur le budget et le bilan.
+            </p>
+          ) : revenuDirty ? (
+            <p className="text-[11px] font-medium text-warning">
+              Appuie sur « Valider » pour enregistrer.
+            </p>
+          ) : null}
         </div>
       </section>
 
