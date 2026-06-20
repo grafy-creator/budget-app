@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { EditableAmount } from "@/components/EditableAmount";
 import { MonthSelector } from "@/components/MonthSelector";
-import { formatEuro } from "@/lib/format";
+import { formatDateShort, formatEuro, TODAY_ISO } from "@/lib/format";
 import { budget as mockBudget } from "@/lib/mock";
 import { useData } from "@/lib/store";
 
@@ -165,7 +165,9 @@ export function BudgetView() {
                   <p className="truncate text-sm font-semibold text-graphite">
                     {e.label}
                   </p>
-                  <p className="truncate text-[11px] text-graphite/55">{e.date}</p>
+                  <p className="truncate text-[11px] text-graphite/55">
+                    {formatDateShort(e.date)}
+                  </p>
                 </div>
                 <EditableAmount
                   value={e.amount}
@@ -192,9 +194,23 @@ export function BudgetView() {
   );
 }
 
+const INCOME_ICONS = ["🎓", "💻", "🎨", "💰", "🏦", "📈", "🎁", "📦"];
+
+type IncomeForm = {
+  id: string | null;
+  icon: string;
+  label: string;
+  source: string;
+  subtype: "fixe" | "freelance";
+  amount: string;
+  date: string;
+};
+
 /** Onglet Revenus : distinction fixe (alternance) / freelance variable. */
 function RevenusTab() {
-  const { income, updateIncome } = useData();
+  const { income, addIncome, updateIncome, removeIncome } = useData();
+  const [form, setForm] = useState<IncomeForm | null>(null);
+
   const fixe = income
     .filter((r) => r.subtype === "fixe")
     .reduce((s, r) => s + r.amount, 0);
@@ -202,6 +218,46 @@ function RevenusTab() {
     .filter((r) => r.subtype === "freelance")
     .reduce((s, r) => s + r.amount, 0);
   const total = fixe + freelance || 1;
+
+  function openNew() {
+    setForm({
+      id: null,
+      icon: "💻",
+      label: "",
+      source: "",
+      subtype: "freelance",
+      amount: "",
+      date: TODAY_ISO,
+    });
+  }
+  function openEdit(id: string) {
+    const r = income.find((x) => x.id === id);
+    if (!r) return;
+    setForm({
+      id: r.id,
+      icon: r.icon,
+      label: r.label,
+      source: r.source,
+      subtype: r.subtype,
+      amount: String(r.amount),
+      date: r.date,
+    });
+  }
+  function save() {
+    if (!form || !form.label.trim()) return;
+    const amount = parseFloat(form.amount.replace(",", ".")) || 0;
+    const data = {
+      icon: form.icon,
+      label: form.label.trim(),
+      source: form.source.trim() || "—",
+      subtype: form.subtype,
+      amount,
+      date: form.date,
+    };
+    if (form.id) updateIncome(form.id, data);
+    else addIncome(data);
+    setForm(null);
+  }
 
   return (
     <>
@@ -236,36 +292,56 @@ function RevenusTab() {
         <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
           Entrées du mois
         </h2>
+
+        {!form && (
+          <button
+            type="button"
+            onClick={openNew}
+            className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+          >
+            + Ajouter un revenu
+          </button>
+        )}
+
+        {form && <IncomeFormPanel form={form} setForm={setForm} onSave={save} />}
+
         {income.map((r) => (
           <div
             key={r.id}
             className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
           >
-            <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-              aria-hidden
+            <button
+              type="button"
+              onClick={() => openEdit(r.id)}
+              aria-label={`Modifier ${r.label}`}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
             >
-              {r.icon}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-graphite">
-                  {r.label}
-                </p>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                    r.subtype === "fixe"
-                      ? "bg-plum/10 text-plum"
-                      : "bg-violet/15 text-violet"
-                  }`}
-                >
-                  {r.subtype === "fixe" ? "Fixe" : "Freelance"}
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                aria-hidden
+              >
+                {r.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-graphite">
+                    {r.label}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                      r.subtype === "fixe"
+                        ? "bg-plum/10 text-plum"
+                        : "bg-violet/15 text-violet"
+                    }`}
+                  >
+                    {r.subtype === "fixe" ? "Fixe" : "Freelance"}
+                  </span>
                 </span>
-              </div>
-              <p className="truncate text-[11px] text-graphite/55">
-                {r.source} · {r.date}
-              </p>
-            </div>
+                <span className="block truncate text-[11px] text-graphite/55">
+                  {r.source} · {formatDateShort(r.date)}
+                </span>
+              </span>
+            </button>
             <EditableAmount
               value={r.amount}
               onCommit={(n) => updateIncome(r.id, { amount: n })}
@@ -273,15 +349,129 @@ function RevenusTab() {
               ariaLabel={`Montant de ${r.label}`}
               className="shrink-0 text-sm font-bold text-success"
             />
+            <button
+              type="button"
+              aria-label={`Supprimer ${r.label}`}
+              onClick={() => removeIncome(r.id)}
+              className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
+            >
+              ✕
+            </button>
           </div>
         ))}
-        {income.length === 0 && (
+        {income.length === 0 && !form && (
           <p className="py-2 text-center text-xs text-graphite/40">
-            Aucun revenu. Ajoute-en avec le bouton +.
+            Aucun revenu. Ajoute-en un avec le bouton ci-dessus.
           </p>
         )}
       </section>
     </>
+  );
+}
+
+/** Formulaire d'ajout / modification d'un revenu. */
+function IncomeFormPanel({
+  form,
+  setForm,
+  onSave,
+}: {
+  form: IncomeForm;
+  setForm: (f: IncomeForm | null) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
+      {/* Nature : fixe / freelance */}
+      <div className="grid grid-cols-2 gap-2">
+        {(["fixe", "freelance"] as const).map((st) => (
+          <button
+            key={st}
+            type="button"
+            aria-pressed={form.subtype === st}
+            onClick={() => setForm({ ...form, subtype: st })}
+            className={`rounded-lg py-2 text-xs font-bold transition ${
+              form.subtype === st
+                ? "bg-lavender/50 text-plum"
+                : "bg-white text-graphite/60"
+            }`}
+          >
+            {st === "fixe" ? "Fixe (alternance)" : "Freelance"}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {INCOME_ICONS.map((ic) => (
+          <button
+            key={ic}
+            type="button"
+            onClick={() => setForm({ ...form, icon: ic })}
+            aria-label={`Icône ${ic}`}
+            aria-pressed={form.icon === ic}
+            className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
+              form.icon === ic ? "bg-lavender/60" : "bg-white"
+            }`}
+          >
+            {ic}
+          </button>
+        ))}
+      </div>
+      <input
+        value={form.label}
+        onChange={(e) => setForm({ ...form, label: e.target.value })}
+        placeholder="Libellé (ex : Refonte logo)"
+        aria-label="Libellé du revenu"
+        className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+      />
+      <input
+        value={form.source}
+        onChange={(e) => setForm({ ...form, source: e.target.value })}
+        placeholder="Source / client (ex : Studio Rin)"
+        aria-label="Source du revenu"
+        className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+      />
+      <div className="flex gap-2">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white px-3 py-2">
+          <span className="text-xs font-semibold text-graphite/50">📅</span>
+          <input
+            type="date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            aria-label="Date du revenu"
+            className="min-w-0 flex-1 bg-transparent text-sm text-graphite outline-none [color-scheme:light]"
+          />
+        </label>
+        <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+          <input
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) =>
+              setForm({ ...form, amount: e.target.value.replace(/[^0-9.,]/g, "") })
+            }
+            placeholder="0"
+            aria-label="Montant"
+            className="w-16 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+          />
+          <span className="text-sm font-bold text-graphite">€</span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setForm(null)}
+          className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!form.label.trim()}
+          className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
+        >
+          {form.id ? "Enregistrer" : "Ajouter"}
+        </button>
+      </div>
+    </div>
   );
 }
 

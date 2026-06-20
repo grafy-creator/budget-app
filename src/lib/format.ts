@@ -15,5 +15,24 @@ export function formatEuro(amount: number): string {
   // ICU utilise une espace fine insécable (U+202F) comme séparateur de milliers
   // et avant le « € » ; elle est quasi invisible aux petites tailles. On
   // normalise toutes les espaces (fine insécable, insécable, normale) en U+00A0.
-  return eur.format(amount).replace(/[  \s]+/g, NBSP);
+  return eur.format(amount).replace(/\s+/g, NBSP);
 }
+
+const dateShort = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+});
+
+/**
+ * Formate une date ISO (YYYY-MM-DD) en libellé court : "2026-04-03" → "3 avr".
+ * Si la valeur n'est pas une date ISO valide, on la renvoie telle quelle
+ * (compatibilité avec d'anciens libellés en texte).
+ */
+export function formatDateShort(value: string): string {
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return dateShort.format(d).replace(".", "");
+}
+
+/** Date du jour de référence du prototype (l'app est calée sur avril 2026). */
+export const TODAY_ISO = "2026-04-10";

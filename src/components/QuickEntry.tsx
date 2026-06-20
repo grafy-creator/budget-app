@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TODAY_ISO } from "@/lib/format";
 import { useData } from "@/lib/store";
 
 const TYPES = [
@@ -29,7 +30,7 @@ export function QuickEntry() {
   const [category, setCategory] = useState<string | null>(null);
   const [subtype, setSubtype] = useState<"fixe" | "freelance">("freelance");
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [date, setDate] = useState("10 avr");
+  const [date, setDate] = useState(TODAY_ISO);
   const [note, setNote] = useState("");
   const [done, setDone] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -70,7 +71,7 @@ export function QuickEntry() {
     setCategory(null);
     setSubtype("freelance");
     setAccountId(null);
-    setDate("10 avr");
+    setDate(TODAY_ISO);
     setNote("");
     setDone(false);
   }
@@ -200,13 +201,13 @@ export function QuickEntry() {
             {/* Date + note (tous types) */}
             <div className="mt-3 flex flex-col gap-2">
               <label className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2.5">
-                <span className="text-xs font-semibold text-graphite/50">Date</span>
+                <span className="text-xs font-semibold text-graphite/50">📅 Date</span>
                 <input
+                  type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  placeholder="ex : 10 avril"
                   aria-label="Date"
-                  className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none [color-scheme:light]"
                 />
               </label>
               <input

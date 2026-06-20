@@ -81,8 +81,8 @@ export const budget = {
     { id: "telephone", label: "Téléphone", day: "Le 15 du mois", amount: 20, icon: "📱", paid: true },
   ] satisfies FixedCharge[],
   variableExpenses: [
-    { id: "courses", label: "Courses", date: "3 avr", amount: 85, icon: "🛒" },
-    { id: "restaurant", label: "Restaurant", date: "5 avr", amount: 42, icon: "🍽️" },
+    { id: "courses", label: "Courses", date: "2026-04-03", amount: 85, icon: "🛒" },
+    { id: "restaurant", label: "Restaurant", date: "2026-04-05", amount: 42, icon: "🍽️" },
   ] satisfies VariableExpense[],
   // Revenus du mois — distinction fixe (alternance) / freelance variable.
   income: [
@@ -90,7 +90,7 @@ export const budget = {
       id: "alternance",
       label: "Alternance",
       source: "Salaire mensuel",
-      date: "2 avr",
+      date: "2026-04-02",
       amount: 850,
       subtype: "fixe",
       icon: "🎓",
@@ -99,7 +99,7 @@ export const budget = {
       id: "freelance-logo",
       label: "Refonte logo",
       source: "Studio Rin",
-      date: "8 avr",
+      date: "2026-04-08",
       amount: 1200,
       subtype: "freelance",
       icon: "💻",
@@ -108,7 +108,7 @@ export const budget = {
       id: "freelance-affiche",
       label: "Affiche concert",
       source: "Client — Mathéo",
-      date: "22 avr",
+      date: "2026-04-22",
       amount: 600,
       subtype: "freelance",
       icon: "🎨",
