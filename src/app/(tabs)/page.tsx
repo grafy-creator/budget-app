@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChargeRow } from "@/components/today/ChargeRow";
 import { formatEuro } from "@/lib/format";
 import { today, todayOutflow } from "@/lib/mock";
@@ -51,19 +50,10 @@ export default function AujourdhuiPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* En-tête : salutation + date + accès calendrier */}
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-medium text-graphite/55">Bonjour 👋</p>
-          <h1 className="text-xl font-bold text-graphite">{today.dateLabel}</h1>
-        </div>
-        <Link
-          href="/calendrier"
-          aria-label="Ouvrir le calendrier"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm transition active:scale-95"
-        >
-          📅
-        </Link>
+      {/* En-tête : salutation + date */}
+      <header>
+        <p className="text-[13px] font-medium text-graphite/55">Bonjour 👋</p>
+        <h1 className="text-xl font-bold text-graphite">{today.dateLabel}</h1>
       </header>
 
       {/* Carte solde */}
