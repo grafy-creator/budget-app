@@ -130,3 +130,34 @@ export const savings = {
     saved: "5 mois de gagnés",
   },
 };
+
+export type BilanRow = {
+  id: string;
+  icon: string;
+  label: string;
+  prevu: number;
+  reel: number;
+  ecart: number; // signé
+  good: boolean; // l'écart est-il favorable ?
+};
+
+export const bilan = {
+  monthLabel: "Avril 2026",
+  banner: {
+    title: "🎉 Bon mois ! Tu es dans les clous.",
+    sub: "Quelques ajustements sur l'épargne.",
+  },
+  rows: [
+    { id: "revenus", icon: "💰", label: "Revenus", prevu: 2500, reel: 2650, ecart: 150, good: true },
+    { id: "fixes", icon: "🔒", label: "Fixes", prevu: 1000, reel: 880, ecart: -120, good: true },
+    { id: "variables", icon: "🛒", label: "Variables", prevu: 500, reel: 420, ecart: -80, good: true },
+    { id: "epargne", icon: "🐷", label: "Épargne", prevu: 500, reel: 300, ecart: -200, good: false },
+  ] satisfies BilanRow[],
+  reste: 1050,
+  analysis: [
+    { icon: "✅", text: "Tu as gagné 150 € de plus que prévu.", bad: false },
+    { icon: "✅", text: "Tu as dépensé moins que prévu.", bad: false },
+    { icon: "🔴", text: "Tu as épargné 200 € de moins.", bad: true },
+  ],
+  unallocated: 1050,
+};
