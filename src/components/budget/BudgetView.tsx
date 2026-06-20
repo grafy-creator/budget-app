@@ -4,11 +4,19 @@ import { useMemo, useState } from "react";
 import { EditableAmount } from "@/components/EditableAmount";
 import { MonthSelector } from "@/components/MonthSelector";
 import { formatDateShort, formatEuro, TODAY_ISO } from "@/lib/format";
-import { budget as mockBudget } from "@/lib/mock";
+import { budget as mockBudget, type Category } from "@/lib/mock";
 import { useData } from "@/lib/store";
 
 const TABS = ["Dépenses", "Revenus", "Épargne"] as const;
 type Tab = (typeof TABS)[number];
+
+type ExpenseForm = {
+  id: string | null;
+  categoryId: string;
+  label: string;
+  amount: string;
+  date: string;
+};
 
 function SummaryBar({
   label,
@@ -41,7 +49,52 @@ function SummaryBar({
 
 export function BudgetView() {
   const [tab, setTab] = useState<Tab>("Dépenses");
-  const { charges, variables, updateCharge, updateVariable } = useData();
+  const {
+    charges,
+    variables,
+    categories,
+    updateCharge,
+    addVariable,
+    updateVariable,
+    removeVariable,
+  } = useData();
+  const [expenseForm, setExpenseForm] = useState<ExpenseForm | null>(null);
+
+  function openNewExpense() {
+    setExpenseForm({
+      id: null,
+      categoryId: categories[0]?.id ?? "",
+      label: "",
+      amount: "",
+      date: TODAY_ISO,
+    });
+  }
+  function openEditExpense(id: string) {
+    const e = variables.find((x) => x.id === id);
+    if (!e) return;
+    setExpenseForm({
+      id: e.id,
+      categoryId: e.categoryId ?? categories[0]?.id ?? "",
+      label: e.label,
+      amount: String(e.amount),
+      date: e.date,
+    });
+  }
+  function saveExpense() {
+    if (!expenseForm) return;
+    const amount = parseFloat(expenseForm.amount.replace(",", ".")) || 0;
+    const cat = categories.find((c) => c.id === expenseForm.categoryId);
+    const data = {
+      label: expenseForm.label.trim() || cat?.label || "Dépense",
+      date: expenseForm.date,
+      amount,
+      icon: cat?.icon ?? "📦",
+      categoryId: expenseForm.categoryId,
+    };
+    if (expenseForm.id) updateVariable(expenseForm.id, data);
+    else addVariable(data);
+    setExpenseForm(null);
+  }
 
   const fixedSpent = charges.reduce((s, c) => s + c.amount, 0);
   const variableSpent = variables.reduce((s, v) => s + v.amount, 0);
@@ -150,25 +203,52 @@ export function BudgetView() {
             <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
               Dépenses variables
             </h2>
+
+            {!expenseForm && (
+              <button
+                type="button"
+                onClick={openNewExpense}
+                className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+              >
+                + Ajouter une dépense
+              </button>
+            )}
+
+            {expenseForm && (
+              <ExpenseFormPanel
+                form={expenseForm}
+                setForm={setExpenseForm}
+                categories={categories}
+                onSave={saveExpense}
+              />
+            )}
+
             {variables.map((e) => (
               <div
                 key={e.id}
                 className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
               >
-                <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-                  aria-hidden
+                <button
+                  type="button"
+                  onClick={() => openEditExpense(e.id)}
+                  aria-label={`Modifier ${e.label}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  {e.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-graphite">
-                    {e.label}
-                  </p>
-                  <p className="truncate text-[11px] text-graphite/55">
-                    {formatDateShort(e.date)}
-                  </p>
-                </div>
+                  <span
+                    className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                    aria-hidden
+                  >
+                    {e.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-graphite">
+                      {e.label}
+                    </span>
+                    <span className="block truncate text-[11px] text-graphite/55">
+                      {formatDateShort(e.date)}
+                    </span>
+                  </span>
+                </button>
                 <EditableAmount
                   value={e.amount}
                   onCommit={(n) => updateVariable(e.id, { amount: n })}
@@ -176,11 +256,19 @@ export function BudgetView() {
                   ariaLabel={`Montant de ${e.label}`}
                   className="shrink-0 text-sm font-bold text-violet"
                 />
+                <button
+                  type="button"
+                  aria-label={`Supprimer ${e.label}`}
+                  onClick={() => removeVariable(e.id)}
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
+                >
+                  ✕
+                </button>
               </div>
             ))}
-            {variables.length === 0 && (
+            {variables.length === 0 && !expenseForm && (
               <p className="py-2 text-center text-xs text-graphite/40">
-                Aucune dépense variable. Ajoute-en avec le bouton +.
+                Aucune dépense variable. Ajoute-en une avec le bouton ci-dessus.
               </p>
             )}
           </section>
@@ -544,5 +632,99 @@ function EpargneTab() {
         ))}
       </section>
     </>
+  );
+}
+
+/** Formulaire d'ajout / modification d'une dépense variable. */
+function ExpenseFormPanel({
+  form,
+  setForm,
+  categories,
+  onSave,
+}: {
+  form: ExpenseForm;
+  setForm: (f: ExpenseForm | null) => void;
+  categories: Category[];
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
+      {/* Catégorie */}
+      <div className="grid grid-cols-3 gap-2">
+        {categories.map((c) => {
+          const active = form.categoryId === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setForm({ ...form, categoryId: c.id })}
+              className={`flex flex-col items-center gap-1 rounded-lg py-2 transition ${
+                active ? "bg-lavender/50 ring-1 ring-plum/30" : "bg-white"
+              }`}
+            >
+              <span className="text-lg" aria-hidden>
+                {c.icon}
+              </span>
+              <span
+                className={`text-[10px] ${
+                  active ? "font-bold text-plum" : "text-graphite/60"
+                }`}
+              >
+                {c.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <input
+        value={form.label}
+        onChange={(e) => setForm({ ...form, label: e.target.value })}
+        placeholder="Libellé (optionnel)"
+        aria-label="Libellé de la dépense"
+        className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+      />
+      <div className="flex gap-2">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white px-3 py-2">
+          <span className="text-xs font-semibold text-graphite/50">📅</span>
+          <input
+            type="date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            aria-label="Date de la dépense"
+            className="min-w-0 flex-1 bg-transparent text-sm text-graphite outline-none [color-scheme:light]"
+          />
+        </label>
+        <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+          <input
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) =>
+              setForm({ ...form, amount: e.target.value.replace(/[^0-9.,]/g, "") })
+            }
+            placeholder="0"
+            aria-label="Montant"
+            className="w-16 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+          />
+          <span className="text-sm font-bold text-graphite">€</span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setForm(null)}
+          className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white"
+        >
+          {form.id ? "Enregistrer" : "Ajouter"}
+        </button>
+      </div>
+    </div>
   );
 }

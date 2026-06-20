@@ -11,6 +11,7 @@ const RULES = [
 ];
 
 const ICONS = ["🏠", "📺", "🎵", "📱", "💡", "🚗", "🏋️", "📦"];
+const CAT_ICONS = ["🛒", "🍽️", "🚗", "💊", "🎮", "📦", "👕", "🎁", "☕", "🐾"];
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -42,6 +43,10 @@ export function ReglagesView() {
     addCharge,
     updateCharge,
     removeCharge,
+    categories,
+    addCategory,
+    updateCategory,
+    removeCategory,
     settings,
     setRevenuCible,
     setReminder,
@@ -49,6 +54,21 @@ export function ReglagesView() {
 
   const [revenuDraft, setRevenuDraft] = useState(String(settings.revenuCible));
   const [form, setForm] = useState<FormState | null>(null);
+  const [catForm, setCatForm] = useState<{
+    id: string | null;
+    icon: string;
+    label: string;
+  } | null>(null);
+
+  function saveCat() {
+    if (!catForm || !catForm.label.trim()) return;
+    if (catForm.id) {
+      updateCategory(catForm.id, { icon: catForm.icon, label: catForm.label.trim() });
+    } else {
+      addCategory({ icon: catForm.icon, label: catForm.label.trim() });
+    }
+    setCatForm(null);
+  }
 
   const total = RULES.reduce((sum, r) => sum + r.pct, 0);
 
@@ -270,6 +290,101 @@ export function ReglagesView() {
               Aucune charge récurrente.
             </p>
           )}
+        </div>
+      </section>
+
+      {/* Catégories de dépenses */}
+      <section className="flex flex-col gap-2">
+        <SectionTitle>Mes catégories de dépenses</SectionTitle>
+        <div className="flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm">
+          {!catForm && (
+            <button
+              type="button"
+              onClick={() => setCatForm({ id: null, icon: "🛒", label: "" })}
+              className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+            >
+              + Ajouter une catégorie
+            </button>
+          )}
+
+          {catForm && (
+            <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
+              <div className="flex flex-wrap gap-1">
+                {CAT_ICONS.map((ic) => (
+                  <button
+                    key={ic}
+                    type="button"
+                    onClick={() => setCatForm({ ...catForm, icon: ic })}
+                    aria-label={`Icône ${ic}`}
+                    aria-pressed={catForm.icon === ic}
+                    className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
+                      catForm.icon === ic ? "bg-lavender/60" : "bg-white"
+                    }`}
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={catForm.label}
+                onChange={(e) => setCatForm({ ...catForm, label: e.target.value })}
+                placeholder="Nom (ex : Abonnements)"
+                aria-label="Nom de la catégorie"
+                className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCatForm(null)}
+                  className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={saveCat}
+                  disabled={!catForm.label.trim()}
+                  className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  {catForm.id ? "Enregistrer" : "Ajouter"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {categories.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-1.5 rounded-full bg-graphite/5 py-1.5 pl-3 pr-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCatForm({ id: c.id, icon: c.icon, label: c.label })
+                  }
+                  aria-label={`Modifier ${c.label}`}
+                  className="flex items-center gap-1.5 text-sm font-medium text-graphite"
+                >
+                  <span aria-hidden>{c.icon}</span>
+                  {c.label}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Supprimer ${c.label}`}
+                  onClick={() => removeCategory(c.id)}
+                  className="flex size-5 items-center justify-center rounded-full text-graphite/40 transition hover:bg-error/10 hover:text-error"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {categories.length === 0 && (
+              <p className="py-2 text-center text-xs text-graphite/40">
+                Aucune catégorie.
+              </p>
+            )}
+          </div>
         </div>
       </section>
 

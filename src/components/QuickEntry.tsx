@@ -10,19 +10,11 @@ const TYPES = [
   { id: "epargne", icon: "🐷", label: "Épargne" },
 ] as const;
 
-const CATEGORIES = [
-  { id: "courses", icon: "🛒", label: "Courses" },
-  { id: "resto", icon: "🍽️", label: "Resto" },
-  { id: "transport", icon: "🚗", label: "Transport" },
-  { id: "sante", icon: "💊", label: "Santé" },
-  { id: "loisirs", icon: "🎮", label: "Loisirs" },
-  { id: "autre", icon: "📦", label: "Autre" },
-];
-
 type TypeId = (typeof TYPES)[number]["id"];
 
 export function QuickEntry() {
-  const { accounts, addVariable, addIncome, addContribution } = useData();
+  const { accounts, categories, addVariable, addIncome, addContribution } =
+    useData();
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<TypeId>("depense");
@@ -80,12 +72,13 @@ export function QuickEntry() {
     if (!canSubmit) return;
 
     if (type === "depense") {
-      const cat = CATEGORIES.find((c) => c.id === category)!;
+      const cat = categories.find((c) => c.id === category)!;
       addVariable({
         label: note.trim() || cat.label,
         date: date.trim() || "—",
         amount: amountValue,
         icon: cat.icon,
+        categoryId: cat.id,
       });
     } else if (type === "revenu") {
       addIncome({
@@ -226,7 +219,7 @@ export function QuickEntry() {
             {/* Catégories (dépense) */}
             {type === "depense" && (
               <div className="mt-3 grid grid-cols-3 gap-2">
-                {CATEGORIES.map((c) => {
+                {categories.map((c) => {
                   const active = category === c.id;
                   return (
                     <button

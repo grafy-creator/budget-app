@@ -4,10 +4,12 @@ import { createContext, useContext, useMemo, useState } from "react";
 import {
   budget as mockBudget,
   savings as mockSavings,
+  categories as mockCategories,
   type FixedCharge,
   type VariableExpense,
   type IncomeEntry,
   type SavingsAccount,
+  type Category,
 } from "./mock";
 
 /**
@@ -24,6 +26,7 @@ type Store = {
   variables: VariableExpense[];
   income: IncomeEntry[];
   accounts: SavingsAccount[];
+  categories: Category[];
   settings: Settings;
 
   // Charges fixes (= récurrences)
@@ -46,6 +49,11 @@ type Store = {
   updateAccount: (id: string, patch: Partial<SavingsAccount>) => void;
   removeAccount: (id: string) => void;
   addContribution: (id: string, amount: number) => void;
+
+  // Catégories de dépenses
+  addCategory: (data: Omit<Category, "id">) => void;
+  updateCategory: (id: string, patch: Partial<Category>) => void;
+  removeCategory: (id: string) => void;
 
   setRevenuCible: (n: number) => void;
   setReminder: (b: boolean) => void;
@@ -73,6 +81,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<SavingsAccount[]>(() =>
     clone(mockSavings.accounts),
   );
+  const [categories, setCategories] = useState<Category[]>(() =>
+    clone(mockCategories),
+  );
   const [settings, setSettings] = useState<Settings>({
     revenuCible: 2500,
     reminder: true,
@@ -84,6 +95,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       variables,
       income,
       accounts,
+      categories,
       settings,
 
       updateCharge: (id, patch) =>
@@ -120,10 +132,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ),
         ),
 
+      addCategory: (data) => setCategories((l) => [...l, { ...data, id: uid() }]),
+      updateCategory: (id, patch) =>
+        setCategories((l) =>
+          l.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        ),
+      removeCategory: (id) => setCategories((l) => l.filter((c) => c.id !== id)),
+
       setRevenuCible: (n) => setSettings((s) => ({ ...s, revenuCible: n })),
       setReminder: (b) => setSettings((s) => ({ ...s, reminder: b })),
     }),
-    [charges, variables, income, accounts, settings],
+    [charges, variables, income, accounts, categories, settings],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

@@ -65,7 +65,24 @@ export type VariableExpense = {
   date: string;
   amount: number;
   icon: string;
+  categoryId?: string;
 };
+
+export type Category = {
+  id: string;
+  label: string;
+  icon: string;
+};
+
+// Catégories de dépenses personnalisables (CDC — MUST).
+export const categories: Category[] = [
+  { id: "courses", label: "Courses", icon: "🛒" },
+  { id: "resto", label: "Resto", icon: "🍽️" },
+  { id: "transport", label: "Transport", icon: "🚗" },
+  { id: "sante", label: "Santé", icon: "💊" },
+  { id: "loisirs", label: "Loisirs", icon: "🎮" },
+  { id: "autre", label: "Autre", icon: "📦" },
+];
 
 export const budget = {
   monthLabel: "Avril 2026",
@@ -81,8 +98,8 @@ export const budget = {
     { id: "telephone", label: "Téléphone", day: "Le 15 du mois", amount: 20, icon: "📱", paid: true },
   ] satisfies FixedCharge[],
   variableExpenses: [
-    { id: "courses", label: "Courses", date: "2026-04-03", amount: 85, icon: "🛒" },
-    { id: "restaurant", label: "Restaurant", date: "2026-04-05", amount: 42, icon: "🍽️" },
+    { id: "courses", label: "Courses", date: "2026-04-03", amount: 85, icon: "🛒", categoryId: "courses" },
+    { id: "restaurant", label: "Restaurant", date: "2026-04-05", amount: 42, icon: "🍽️", categoryId: "resto" },
   ] satisfies VariableExpense[],
   // Revenus du mois — distinction fixe (alternance) / freelance variable.
   income: [

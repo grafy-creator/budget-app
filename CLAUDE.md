@@ -165,7 +165,7 @@ public/
 docs/                       # CDC + lien maquette (sources de référence)
 ```
 
-> **Données** : magasin **en mémoire** `src/lib/store.tsx` (`DataProvider` + `useData()`), initialisé depuis `src/lib/mock.ts`. Les écrans lisent/écrivent ce magasin → ajouts et modifications (montants via `EditableAmount`, charges, comptes, versements, saisie rapide) se reflètent partout **pendant la session**. ⚠️ **Non persistant** : tout est réinitialisé au rechargement de la page. À remplacer par Supabase pour la persistance. Bilan et Calendrier restent en lecture sur `mock.ts` (rapports).
+> **Données** : magasin **en mémoire** `src/lib/store.tsx` (`DataProvider` + `useData()`), initialisé depuis `src/lib/mock.ts`. Collections gérées en CRUD complet : charges fixes/récurrences, dépenses variables, revenus (nature fixe/freelance), comptes d'épargne + versements, **catégories de dépenses personnalisables**, revenu cible, rappel. Édition des montants via `EditableAmount` (clic → champ), dates via sélecteur calendrier (`<input type="date">`, ISO + `formatDateShort`). Les modifs se reflètent partout **pendant la session**. ⚠️ **Non persistant** : réinitialisé au rechargement. Branchement Supabase prévu **à la toute fin**, une fois l'UX validée. Bilan et Calendrier restent en lecture sur `mock.ts` (rapports).
 
 **Décisions d'architecture (init) :**
 - **PWA sans plugin webpack.** Next 16 utilise Turbopack par défaut ; les plugins type `next-pwa` (webpack) ne sont pas fiables. On utilise donc le `manifest.ts` natif de Next + un service worker écrit à la main (`public/sw.js`) → compatible tout bundler, couvre l'« offline basique » du CDC. Évolution possible : Serwist.
