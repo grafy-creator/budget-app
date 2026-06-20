@@ -1,5 +1,5 @@
 import { BottomNav } from "@/components/BottomNav";
-import { Fab } from "@/components/Fab";
+import { QuickEntry } from "@/components/QuickEntry";
 
 /**
  * Coquille des onglets de l'app (Aujourd'hui, Budget, Épargne, Bilan, Réglages).
@@ -17,7 +17,7 @@ export default function TabsLayout({
         <main className="min-w-0 flex-1 overflow-y-auto px-5 pb-28 pt-12">
           {children}
         </main>
-        <Fab />
+        <QuickEntry />
         <BottomNav />
       </div>
     </div>
