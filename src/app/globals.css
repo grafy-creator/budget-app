@@ -1,0 +1,57 @@
+/* ------------------------------------------------------------------ */
+/* Polices — Charte Rin Studio                                         */
+/* Cabinet Grotesk (titres) + Satoshi (corps), distribués gratuitement */
+/* par Fontshare. Pour la prod / l'offline, préférer un self-host via  */
+/* next/font/local (déposer les .woff2 dans src/app/fonts/).           */
+/* @import doit précéder toute autre règle (y compris Tailwind).        */
+/* ------------------------------------------------------------------ */
+@import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@400,500,700&display=swap");
+
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — Charte Rin Studio (voir CLAUDE.md §3)               */
+/* ------------------------------------------------------------------ */
+@theme {
+  /* Couleurs de marque */
+  --color-plum: #3d2b52; /* Primaire — Deep Plum */
+  --color-violet: #7b65a6; /* Secondaire — Soft Violet */
+  --color-lavender: #c8b8e6; /* Accent — Lavender */
+  --color-cloud: #f4f1fa; /* Fond — Cloud */
+  --color-graphite: #2d2433; /* Texte — Graphite */
+
+  /* Couleurs sémantiques (jamais seules : toujours doublées d'un label/icône) */
+  --color-success: #3b7d5e;
+  --color-warning: #c4871f;
+  --color-error: #c0392b;
+
+  /* Rôles applicatifs */
+  --color-background: var(--color-cloud);
+  --color-foreground: var(--color-graphite);
+
+  /* Typographies */
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ------------------------------------------------------------------ */
+/* Base                                                               */
+/* ------------------------------------------------------------------ */
+html {
+  /* Accessibilité : police mobile ≥ 16px (CDC §6.3) */
+  font-size: 16px;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+}
