@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { DayOfMonthPicker } from "@/components/DayOfMonthPicker";
+import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
 import { MonthSelector } from "@/components/MonthSelector";
 import {
@@ -218,7 +220,7 @@ export function BudgetView() {
               </button>
             )}
 
-            {chargeForm && (
+            {chargeForm && chargeForm.id === null && (
               <ChargeFormPanel
                 form={chargeForm}
                 setForm={setChargeForm}
@@ -226,67 +228,72 @@ export function BudgetView() {
               />
             )}
 
-            {charges.map((c) => (
-              <div
-                key={c.id}
-                className={`flex items-center gap-3 rounded-xl p-2.5 shadow-sm ${
-                  c.paid ? "bg-success/5" : "bg-white"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => openEditCharge(c.id)}
-                  aria-label={`Modifier ${c.label}`}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                >
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-                    aria-hidden
-                  >
-                    {c.icon}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-graphite">
-                      {c.label}
-                    </span>
-                    <span className="block truncate text-[11px] text-graphite/55">
-                      {formatDayOfMonth(c.dayOfMonth)}
-                    </span>
-                  </span>
-                </button>
-                <EditableAmount
-                  value={c.amount}
-                  onCommit={(n) => updateCharge(c.id, { amount: n })}
-                  ariaLabel={`Montant de ${c.label}`}
-                  className="shrink-0 text-sm font-bold text-graphite"
+            {charges.map((c) =>
+              chargeForm && chargeForm.id === c.id ? (
+                <ChargeFormPanel
+                  key={c.id}
+                  form={chargeForm}
+                  setForm={setChargeForm}
+                  onSave={saveCharge}
                 />
-                <button
-                  type="button"
-                  aria-pressed={c.paid}
-                  aria-label={
-                    c.paid
-                      ? `${c.label} payé, marquer comme non payé`
-                      : `Marquer ${c.label} comme payé`
-                  }
-                  onClick={() => updateCharge(c.id, { paid: !c.paid })}
-                  className={`flex size-7 shrink-0 items-center justify-center rounded-[14px] text-sm font-bold transition ${
-                    c.paid
-                      ? "bg-success text-white"
-                      : "bg-graphite/10 text-graphite/40"
+              ) : (
+                <div
+                  key={c.id}
+                  className={`flex items-center gap-3 rounded-xl p-2.5 shadow-sm ${
+                    c.paid ? "bg-success/5" : "bg-white"
                   }`}
                 >
-                  {c.paid ? "✓" : "○"}
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Supprimer ${c.label}`}
-                  onClick={() => removeCharge(c.id)}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => openEditCharge(c.id)}
+                    aria-label={`Modifier ${c.label}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <span
+                      className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                      aria-hidden
+                    >
+                      {c.icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-graphite">
+                        {c.label}
+                      </span>
+                      <span className="block truncate text-[11px] text-graphite/55">
+                        {formatDayOfMonth(c.dayOfMonth)}
+                      </span>
+                    </span>
+                  </button>
+                  <EditableAmount
+                    value={c.amount}
+                    onCommit={(n) => updateCharge(c.id, { amount: n })}
+                    ariaLabel={`Montant de ${c.label}`}
+                    className="shrink-0 text-sm font-bold text-graphite"
+                  />
+                  <button
+                    type="button"
+                    aria-pressed={c.paid}
+                    aria-label={
+                      c.paid
+                        ? `${c.label} payé, marquer comme non payé`
+                        : `Marquer ${c.label} comme payé`
+                    }
+                    onClick={() => updateCharge(c.id, { paid: !c.paid })}
+                    className={`flex size-7 shrink-0 items-center justify-center rounded-[14px] text-sm font-bold transition ${
+                      c.paid
+                        ? "bg-success text-white"
+                        : "bg-graphite/10 text-graphite/40"
+                    }`}
+                  >
+                    {c.paid ? "✓" : "○"}
+                  </button>
+                  <DeleteButton
+                    label={c.label}
+                    onClick={() => removeCharge(c.id)}
+                  />
+                </div>
+              ),
+            )}
           </section>
 
           <section className="flex flex-col gap-2">
@@ -304,7 +311,7 @@ export function BudgetView() {
               </button>
             )}
 
-            {expenseForm && (
+            {expenseForm && expenseForm.id === null && (
               <ExpenseFormPanel
                 form={expenseForm}
                 setForm={setExpenseForm}
@@ -313,49 +320,55 @@ export function BudgetView() {
               />
             )}
 
-            {variables.map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
-              >
-                <button
-                  type="button"
-                  onClick={() => openEditExpense(e.id)}
-                  aria-label={`Modifier ${e.label}`}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                >
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-                    aria-hidden
-                  >
-                    {e.icon}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-graphite">
-                      {e.label}
-                    </span>
-                    <span className="block truncate text-[11px] text-graphite/55">
-                      {formatDateShort(e.date)}
-                    </span>
-                  </span>
-                </button>
-                <EditableAmount
-                  value={e.amount}
-                  onCommit={(n) => updateVariable(e.id, { amount: n })}
-                  sign="minus"
-                  ariaLabel={`Montant de ${e.label}`}
-                  className="shrink-0 text-sm font-bold text-violet"
+            {variables.map((e) =>
+              expenseForm && expenseForm.id === e.id ? (
+                <ExpenseFormPanel
+                  key={e.id}
+                  form={expenseForm}
+                  setForm={setExpenseForm}
+                  categories={categories}
+                  onSave={saveExpense}
                 />
-                <button
-                  type="button"
-                  aria-label={`Supprimer ${e.label}`}
-                  onClick={() => removeVariable(e.id)}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
+              ) : (
+                <div
+                  key={e.id}
+                  className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
                 >
-                  ✕
-                </button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => openEditExpense(e.id)}
+                    aria-label={`Modifier ${e.label}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <span
+                      className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                      aria-hidden
+                    >
+                      {e.icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-graphite">
+                        {e.label}
+                      </span>
+                      <span className="block truncate text-[11px] text-graphite/55">
+                        {formatDateShort(e.date)}
+                      </span>
+                    </span>
+                  </button>
+                  <EditableAmount
+                    value={e.amount}
+                    onCommit={(n) => updateVariable(e.id, { amount: n })}
+                    sign="minus"
+                    ariaLabel={`Montant de ${e.label}`}
+                    className="shrink-0 text-sm font-bold text-violet"
+                  />
+                  <DeleteButton
+                    label={e.label}
+                    onClick={() => removeVariable(e.id)}
+                  />
+                </div>
+              ),
+            )}
             {variables.length === 0 && !expenseForm && (
               <p className="py-2 text-center text-xs text-graphite/40">
                 Aucune dépense variable. Ajoute-en une avec le bouton ci-dessus.
@@ -505,7 +518,7 @@ function RevenusTab() {
           </button>
         )}
 
-        {form && (
+        {form && form.id === null && (
           <IncomeFormPanel
             form={form}
             setForm={setForm}
@@ -515,6 +528,17 @@ function RevenusTab() {
         )}
 
         {income.map((r) => {
+          if (form && form.id === r.id) {
+            return (
+              <IncomeFormPanel
+                key={r.id}
+                form={form}
+                setForm={setForm}
+                incomeTypes={incomeTypes}
+                onSave={save}
+              />
+            );
+          }
           const pal = paletteFor(Math.max(0, typeIndex(r.typeId)));
           return (
             <div
@@ -556,14 +580,7 @@ function RevenusTab() {
                 ariaLabel={`Montant de ${r.label}`}
                 className="shrink-0 text-sm font-bold text-success"
               />
-              <button
-                type="button"
-                aria-label={`Supprimer ${r.label}`}
-                onClick={() => removeIncome(r.id)}
-                className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
-              >
-                ✕
-              </button>
+              <DeleteButton label={r.label} onClick={() => removeIncome(r.id)} />
             </div>
           );
         })}
@@ -938,26 +955,13 @@ function ChargeFormPanel({
         aria-label="Nom de la charge"
         className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
       />
-      <div className="flex gap-2">
-        <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm text-graphite/60">
-          Le
-          <select
-            value={form.dayOfMonth}
-            onChange={(e) =>
-              setForm({ ...form, dayOfMonth: Number(e.target.value) })
-            }
-            aria-label="Jour d'échéance"
-            className="bg-transparent font-bold text-graphite outline-none"
-          >
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>
-                {d === 1 ? "1er" : d}
-              </option>
-            ))}
-          </select>
-          du mois
-        </label>
-        <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+      <DayOfMonthPicker
+        value={form.dayOfMonth}
+        onChange={(d) => setForm({ ...form, dayOfMonth: d })}
+      />
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-graphite/55">Montant</span>
+        <div className="ml-auto flex items-center gap-1 rounded-lg bg-white px-3 py-2">
           <input
             inputMode="decimal"
             value={form.amount}
@@ -966,7 +970,7 @@ function ChargeFormPanel({
             }
             placeholder="0"
             aria-label="Montant"
-            className="w-16 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+            className="w-20 bg-transparent text-right text-sm font-bold text-graphite outline-none"
           />
           <span className="text-sm font-bold text-graphite">€</span>
         </div>

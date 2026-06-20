@@ -69,6 +69,19 @@ export function TodayView() {
     .filter((c) => !c.paid)
     .reduce((s, c) => s + c.amount, 0);
 
+  // Solde dérivé du magasin :
+  // disponible = revenus − charges déjà payées − dépenses variables − épargne mise de côté.
+  const paidCharges = charges
+    .filter((c) => c.paid)
+    .reduce((s, c) => s + c.amount, 0);
+  const unpaidCharges = charges
+    .filter((c) => !c.paid)
+    .reduce((s, c) => s + c.amount, 0);
+  const variablesSum = variables.reduce((s, v) => s + v.amount, 0);
+  const available = month.income - paidCharges - variablesSum - month.savings;
+  // Projection fin de mois = disponible une fois les charges restantes payées.
+  const projection = available - unpaidCharges;
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <header>
@@ -84,14 +97,14 @@ export function TodayView() {
         <div className="absolute -right-10 -top-12 size-44 rounded-full bg-white/5" aria-hidden />
         <p className="text-xs font-medium text-white/55">Il te reste</p>
         <p className="mt-1 font-display text-5xl font-extrabold leading-none">
-          {formatEuro(today.available)}
+          {formatEuro(available)}
         </p>
         <p className="mt-2 text-xs text-white/45">disponibles maintenant</p>
         <div className="my-3 h-px bg-white/15" />
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-white/45">Projection fin de mois :</span>
           <span className="text-sm font-bold text-lavender">
-            {formatEuro(today.endOfMonthProjection)}
+            {formatEuro(projection)}
           </span>
         </div>
       </section>

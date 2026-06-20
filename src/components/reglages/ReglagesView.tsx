@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DayOfMonthPicker } from "@/components/DayOfMonthPicker";
+import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
 import { formatDayOfMonth, formatEuro } from "@/lib/format";
 import { useData, type RuleKey } from "@/lib/store";
@@ -221,6 +223,77 @@ export function ReglagesView() {
     setForm(null);
   }
 
+  function renderChargeForm() {
+    if (!form) return null;
+    return (
+      <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
+        <div className="flex flex-wrap gap-1">
+          {ICONS.map((ic) => (
+            <button
+              key={ic}
+              type="button"
+              onClick={() => setForm({ ...form, icon: ic })}
+              aria-label={`Icône ${ic}`}
+              aria-pressed={form.icon === ic}
+              className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
+                form.icon === ic ? "bg-lavender/60" : "bg-white"
+              }`}
+            >
+              {ic}
+            </button>
+          ))}
+        </div>
+        <input
+          value={form.label}
+          onChange={(e) => setForm({ ...form, label: e.target.value })}
+          placeholder="Nom (ex : Assurance)"
+          aria-label="Nom de la charge"
+          className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+        />
+        <DayOfMonthPicker
+          value={form.dayOfMonth}
+          onChange={(d) => setForm({ ...form, dayOfMonth: d })}
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-graphite/55">Montant</span>
+          <div className="ml-auto flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+            <input
+              inputMode="decimal"
+              value={form.amount}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  amount: e.target.value.replace(/[^0-9.,]/g, ""),
+                })
+              }
+              placeholder="0"
+              aria-label="Montant"
+              className="w-20 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+            />
+            <span className="text-sm font-bold text-graphite">€</span>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setForm(null)}
+            className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={!form.label.trim()}
+            className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
+          >
+            {form.id ? "Enregistrer" : "Ajouter"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <h1 className="font-display text-2xl font-extrabold text-graphite">
@@ -315,127 +388,45 @@ export function ReglagesView() {
             </button>
           )}
 
-          {/* Formulaire ajout / édition */}
-          {form && (
-            <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
-              <div className="flex flex-wrap gap-1">
-                {ICONS.map((ic) => (
-                  <button
-                    key={ic}
-                    type="button"
-                    onClick={() => setForm({ ...form, icon: ic })}
-                    aria-label={`Icône ${ic}`}
-                    aria-pressed={form.icon === ic}
-                    className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
-                      form.icon === ic ? "bg-lavender/60" : "bg-white"
-                    }`}
-                  >
-                    {ic}
-                  </button>
-                ))}
-              </div>
-              <input
-                value={form.label}
-                onChange={(e) => setForm({ ...form, label: e.target.value })}
-                placeholder="Nom (ex : Assurance)"
-                aria-label="Nom de la charge"
-                className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
-              />
-              <div className="flex gap-2">
-                <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm text-graphite/60">
-                  Le
-                  <select
-                    value={form.dayOfMonth}
-                    onChange={(e) =>
-                      setForm({ ...form, dayOfMonth: Number(e.target.value) })
-                    }
-                    aria-label="Jour d'échéance"
-                    className="bg-transparent font-bold text-graphite outline-none"
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>
-                        {d === 1 ? "1er" : d}
-                      </option>
-                    ))}
-                  </select>
-                  du mois
-                </label>
-                <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
-                  <input
-                    inputMode="decimal"
-                    value={form.amount}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        amount: e.target.value.replace(/[^0-9.,]/g, ""),
-                      })
-                    }
-                    placeholder="0"
-                    aria-label="Montant"
-                    className="w-16 bg-transparent text-right text-sm font-bold text-graphite outline-none"
-                  />
-                  <span className="text-sm font-bold text-graphite">€</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setForm(null)}
-                  className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={!form.label.trim()}
-                  className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
-                >
-                  {form.id ? "Enregistrer" : "Ajouter"}
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Formulaire d'ajout (en haut) */}
+          {form && form.id === null && renderChargeForm()}
 
-          {charges.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 py-1">
-              <button
-                type="button"
-                onClick={() => openEdit(c.id)}
-                aria-label={`Modifier ${c.label}`}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left"
-              >
-                <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-graphite/5 text-base"
-                  aria-hidden
+          {charges.map((c) =>
+            form && form.id === c.id ? (
+              <div key={c.id}>{renderChargeForm()}</div>
+            ) : (
+              <div key={c.id} className="flex items-center gap-3 py-1">
+                <button
+                  type="button"
+                  onClick={() => openEdit(c.id)}
+                  aria-label={`Modifier ${c.label}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  {c.icon}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-graphite">
-                    {c.label}
+                  <span
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-graphite/5 text-base"
+                    aria-hidden
+                  >
+                    {c.icon}
                   </span>
-                  <span className="block truncate text-[11px] text-graphite/55">
-                    {formatDayOfMonth(c.dayOfMonth)} · modifier
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-graphite">
+                      {c.label}
+                    </span>
+                    <span className="block truncate text-[11px] text-graphite/55">
+                      {formatDayOfMonth(c.dayOfMonth)} · modifier
+                    </span>
                   </span>
-                </span>
-              </button>
-              <EditableAmount
-                value={c.amount}
-                onCommit={(n) => updateCharge(c.id, { amount: n })}
-                ariaLabel={`Montant de ${c.label}`}
-                className="shrink-0 text-sm font-bold text-graphite"
-              />
-              <button
-                type="button"
-                aria-label={`Supprimer ${c.label}`}
-                onClick={() => removeCharge(c.id)}
-                className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+                </button>
+                <EditableAmount
+                  value={c.amount}
+                  onCommit={(n) => updateCharge(c.id, { amount: n })}
+                  ariaLabel={`Montant de ${c.label}`}
+                  className="shrink-0 text-sm font-bold text-graphite"
+                />
+                <DeleteButton label={c.label} onClick={() => removeCharge(c.id)} />
+              </div>
+            ),
+          )}
           {charges.length === 0 && (
             <p className="py-2 text-center text-xs text-graphite/40">
               Aucune charge récurrente.
