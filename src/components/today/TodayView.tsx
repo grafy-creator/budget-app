@@ -1,7 +1,7 @@
 "use client";
 
 import { EditableAmount } from "@/components/EditableAmount";
-import { formatEuro } from "@/lib/format";
+import { formatDayOfMonth, formatEuro } from "@/lib/format";
 import { today, budget as mockBudget } from "@/lib/mock";
 import { useData } from "@/lib/store";
 
@@ -114,7 +114,7 @@ export function TodayView() {
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-graphite">{c.label}</p>
               <p className="truncate text-xs text-graphite/55">
-                {c.day} · Charge fixe
+                {formatDayOfMonth(c.dayOfMonth)} · Charge fixe
               </p>
             </div>
             <EditableAmount
@@ -123,19 +123,23 @@ export function TodayView() {
               ariaLabel={`Montant de ${c.label}`}
               className="shrink-0 font-bold text-graphite"
             />
-            {c.paid ? (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-3 py-1.5 text-xs font-bold text-success">
-                <span aria-hidden>✓</span> Payé
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => updateCharge(c.id, { paid: true })}
-                className="shrink-0 rounded-full bg-success px-4 py-1.5 text-xs font-bold text-white transition active:scale-95"
-              >
-                Payer
-              </button>
-            )}
+            <button
+              type="button"
+              aria-pressed={c.paid}
+              aria-label={
+                c.paid
+                  ? `${c.label} payé — annuler`
+                  : `Marquer ${c.label} comme payé`
+              }
+              onClick={() => updateCharge(c.id, { paid: !c.paid })}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition active:scale-95 ${
+                c.paid
+                  ? "bg-success/15 text-success"
+                  : "bg-success text-white"
+              }`}
+            >
+              {c.paid ? "✓ Payé" : "Payer"}
+            </button>
           </div>
         ))}
 

@@ -36,3 +36,8 @@ export function formatDateShort(value: string): string {
 
 /** Date du jour de référence du prototype (l'app est calée sur avril 2026). */
 export const TODAY_ISO = "2026-04-10";
+
+/** Échéance récurrente : 1 → "Le 1er du mois", 10 → "Le 10 du mois". */
+export function formatDayOfMonth(n: number): string {
+  return n === 1 ? "Le 1er du mois" : `Le ${n} du mois`;
+}

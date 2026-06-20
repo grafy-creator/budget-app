@@ -38,10 +38,6 @@ function parseAprilDay(iso: string): number | null {
   const m = iso.match(/^2026-04-(\d{2})$/);
   return m ? Number(m[1]) : null;
 }
-function parseDayOfMonth(text: string): number | null {
-  const m = text.match(/\d+/);
-  return m ? Number(m[0]) : null;
-}
 
 export function CalendarView() {
   const { variables, charges, updateCharge } = useData();
@@ -93,7 +89,7 @@ export function CalendarView() {
       });
   }
   for (const c of charges) {
-    const d = parseDayOfMonth(c.day);
+    const d = c.dayOfMonth;
     if (d) {
       const echeance = !c.paid && d === calendar.today;
       push(d, {

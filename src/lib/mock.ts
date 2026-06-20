@@ -52,7 +52,7 @@ export const todayOutflow = today.charges
 export type FixedCharge = {
   id: string;
   label: string;
-  day: string;
+  dayOfMonth: number; // jour d'échéance (1–31)
   amount: number;
   icon: string;
   paid: boolean;
@@ -92,10 +92,10 @@ export const budget = {
   fixedSpent: 880,
   variableSpent: 420,
   fixedCharges: [
-    { id: "loyer", label: "Loyer", day: "Le 1er du mois", amount: 800, icon: "🏠", paid: true },
-    { id: "netflix", label: "Netflix", day: "Le 10 du mois", amount: 13.99, icon: "📺", paid: false, dueToday: true },
-    { id: "spotify", label: "Spotify", day: "Le 10 du mois", amount: 9.99, icon: "🎵", paid: false, dueToday: true },
-    { id: "telephone", label: "Téléphone", day: "Le 15 du mois", amount: 20, icon: "📱", paid: true },
+    { id: "loyer", label: "Loyer", dayOfMonth: 1, amount: 800, icon: "🏠", paid: true },
+    { id: "netflix", label: "Netflix", dayOfMonth: 10, amount: 13.99, icon: "📺", paid: false, dueToday: true },
+    { id: "spotify", label: "Spotify", dayOfMonth: 10, amount: 9.99, icon: "🎵", paid: false, dueToday: true },
+    { id: "telephone", label: "Téléphone", dayOfMonth: 15, amount: 20, icon: "📱", paid: true },
   ] satisfies FixedCharge[],
   variableExpenses: [
     { id: "courses", label: "Courses", date: "2026-04-03", amount: 85, icon: "🛒", categoryId: "courses" },

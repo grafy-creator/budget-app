@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EditableAmount } from "@/components/EditableAmount";
-import { formatEuro } from "@/lib/format";
+import { formatDayOfMonth, formatEuro } from "@/lib/format";
 import { useData, type RuleKey } from "@/lib/store";
 
 const RULES: { key: RuleKey; label: string; accent: string }[] = [
@@ -106,7 +106,7 @@ type FormState = {
   id: string | null; // null = nouvelle charge
   icon: string;
   label: string;
-  day: string;
+  dayOfMonth: number;
   amount: string;
 };
 
@@ -114,7 +114,7 @@ const EMPTY_FORM: FormState = {
   id: null,
   icon: "🏠",
   label: "",
-  day: "Le 1er du mois",
+  dayOfMonth: 1,
   amount: "",
 };
 
@@ -194,7 +194,7 @@ export function ReglagesView() {
       id: c.id,
       icon: c.icon,
       label: c.label,
-      day: c.day,
+      dayOfMonth: c.dayOfMonth,
       amount: String(c.amount),
     });
   }
@@ -206,14 +206,14 @@ export function ReglagesView() {
       updateCharge(form.id, {
         icon: form.icon,
         label: form.label.trim(),
-        day: form.day.trim(),
+        dayOfMonth: form.dayOfMonth,
         amount,
       });
     } else {
       addCharge({
         icon: form.icon,
         label: form.label.trim(),
-        day: form.day.trim(),
+        dayOfMonth: form.dayOfMonth,
         amount,
         paid: false,
       });
@@ -342,13 +342,24 @@ export function ReglagesView() {
                 className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
               />
               <div className="flex gap-2">
-                <input
-                  value={form.day}
-                  onChange={(e) => setForm({ ...form, day: e.target.value })}
-                  placeholder="Le 1er du mois"
-                  aria-label="Échéance"
-                  className="min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
-                />
+                <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm text-graphite/60">
+                  Le
+                  <select
+                    value={form.dayOfMonth}
+                    onChange={(e) =>
+                      setForm({ ...form, dayOfMonth: Number(e.target.value) })
+                    }
+                    aria-label="Jour d'échéance"
+                    className="bg-transparent font-bold text-graphite outline-none"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d === 1 ? "1er" : d}
+                      </option>
+                    ))}
+                  </select>
+                  du mois
+                </label>
                 <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
                   <input
                     inputMode="decimal"
@@ -405,7 +416,7 @@ export function ReglagesView() {
                     {c.label}
                   </span>
                   <span className="block truncate text-[11px] text-graphite/55">
-                    {c.day} · modifier
+                    {formatDayOfMonth(c.dayOfMonth)} · modifier
                   </span>
                 </span>
               </button>
