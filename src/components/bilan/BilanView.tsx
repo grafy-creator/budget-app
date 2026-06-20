@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MonthSelector } from "@/components/MonthSelector";
 import { formatEuro } from "@/lib/format";
 import { budget as mockBudget } from "@/lib/mock";
-import { useData } from "@/lib/store";
+import { ruleTargets, useData } from "@/lib/store";
 
 function signedEuro(amount: number) {
   const sign = amount >= 0 ? "+" : "−";
@@ -19,10 +19,12 @@ export function BilanView() {
   const realVariable = Math.round(variables.reduce((s, v) => s + v.amount, 0));
   const realSavings = Math.round(accounts.reduce((s, a) => s + a.added, 0));
 
+  // Prévu = revenu cible (revenus) et règle de répartition (Besoins/Envies/Épargne).
+  const targets = ruleTargets(settings);
   const prevuIncome = settings.revenuCible;
-  const prevuFixed = mockBudget.fixedBudget;
-  const prevuVariable = mockBudget.variableBudget;
-  const prevuSavings = mockBudget.savingsBudget;
+  const prevuFixed = targets.fixes;
+  const prevuVariable = targets.variables;
+  const prevuSavings = targets.epargne;
 
   const rows = [
     {

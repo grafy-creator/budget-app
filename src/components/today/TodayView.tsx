@@ -2,8 +2,8 @@
 
 import { EditableAmount } from "@/components/EditableAmount";
 import { formatDayOfMonth, formatEuro } from "@/lib/format";
-import { today, budget as mockBudget } from "@/lib/mock";
-import { useData } from "@/lib/store";
+import { today } from "@/lib/mock";
+import { ruleTargets, useData } from "@/lib/store";
 
 function SummaryRow({
   icon,
@@ -52,6 +52,7 @@ export function TodayView() {
     useData();
 
   // « Ce mois-ci » dérivé du magasin (se met à jour avec les saisies/réglages).
+  const targets = ruleTargets(settings);
   const month = {
     income: income.reduce((s, r) => s + r.amount, 0),
     expenses:
@@ -59,8 +60,8 @@ export function TodayView() {
       variables.reduce((s, v) => s + v.amount, 0),
     savings: accounts.reduce((s, a) => s + a.added, 0),
     incomeTarget: settings.revenuCible,
-    expensesBudget: mockBudget.fixedBudget + mockBudget.variableBudget,
-    savingsTarget: mockBudget.savingsBudget,
+    expensesBudget: targets.fixes + targets.variables,
+    savingsTarget: targets.epargne,
   };
 
   const dueToday = charges.filter((c) => c.dueToday);

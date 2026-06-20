@@ -196,3 +196,21 @@ export function useData() {
   if (!ctx) throw new Error("useData doit être utilisé dans <DataProvider>");
   return ctx;
 }
+
+/**
+ * Objectifs (montants prévus) dérivés du revenu cible et de la règle de
+ * répartition : Besoins (fixes), Envies (variables), Épargne.
+ * Source unique pour le Budget, l'Accueil et le Bilan.
+ */
+export function ruleTargets(s: {
+  revenuCible: number;
+  pctBesoins: number;
+  pctEnvies: number;
+  pctEpargne: number;
+}) {
+  return {
+    fixes: Math.round((s.revenuCible * s.pctBesoins) / 100),
+    variables: Math.round((s.revenuCible * s.pctEnvies) / 100),
+    epargne: Math.round((s.revenuCible * s.pctEpargne) / 100),
+  };
+}

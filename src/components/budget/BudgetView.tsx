@@ -10,7 +10,7 @@ import {
   TODAY_ISO,
 } from "@/lib/format";
 import { budget as mockBudget, type Category } from "@/lib/mock";
-import { useData } from "@/lib/store";
+import { ruleTargets, useData } from "@/lib/store";
 
 const TABS = ["Dépenses", "Revenus", "Épargne"] as const;
 type Tab = (typeof TABS)[number];
@@ -44,7 +44,7 @@ function SummaryBar({
   total: number;
   barClass: string;
 }) {
-  const pct = Math.min(100, Math.round((spent / total) * 100));
+  const pct = Math.min(100, Math.round((spent / (total || 1)) * 100));
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
@@ -68,6 +68,7 @@ export function BudgetView() {
     charges,
     variables,
     categories,
+    settings,
     addCharge,
     updateCharge,
     removeCharge,
@@ -75,6 +76,7 @@ export function BudgetView() {
     updateVariable,
     removeVariable,
   } = useData();
+  const targets = ruleTargets(settings);
   const [expenseForm, setExpenseForm] = useState<ExpenseForm | null>(null);
   const [chargeForm, setChargeForm] = useState<ChargeForm | null>(null);
 
@@ -187,13 +189,13 @@ export function BudgetView() {
             <SummaryBar
               label="Charges fixes"
               spent={fixedSpent}
-              total={mockBudget.fixedBudget}
+              total={targets.fixes}
               barClass="bg-plum"
             />
             <SummaryBar
               label="Charges variables"
               spent={variableSpent}
-              total={mockBudget.variableBudget}
+              total={targets.variables}
               barClass="bg-violet"
             />
             <p className="text-[11px] font-semibold text-warning">
@@ -685,12 +687,12 @@ function IncomeFormPanel({
 
 /** Onglet Épargne : versements du mois par compte (objectif vs réel). */
 function EpargneTab() {
-  const { accounts, updateAccount, addContribution } = useData();
+  const { accounts, settings, updateAccount, addContribution } = useData();
   const [versementFor, setVersementFor] = useState<string | null>(null);
   const [versementAmt, setVersementAmt] = useState("");
   const actual = accounts.reduce((s, a) => s + a.added, 0);
-  const target = mockBudget.savingsBudget;
-  const pct = Math.min(100, Math.round((actual / target) * 100));
+  const target = ruleTargets(settings).epargne;
+  const pct = Math.min(100, Math.round((actual / (target || 1)) * 100));
 
   function commitVersement(id: string) {
     const n = parseFloat(versementAmt.replace(",", ".")) || 0;
