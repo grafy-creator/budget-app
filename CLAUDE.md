@@ -72,9 +72,14 @@ Maquette : frames de **390 × 844**. 5 onglets de navigation basse + 1 feuille m
 6. **06 — Saisie rapide** (bottom sheet modale) : sélecteur de type (dépense / revenu / …) ; saisie du montant ; grille de catégories (6) ; bouton valider. **Cible : < 3 taps, < 10 s.**
 7. **07a / 07b — Calendrier** : calendrier mensuel avec pastilles sur les jours à transactions + légende ; vue « jour sélectionné » détaillant les dépenses du jour (statut payé/à venir, bouton Payer).
 
-> ⚠️ **Divergences maquette ↔ CDC à clarifier avec Rin avant de coder** :
-> - Le CDC place « notifications push » en **WON'T V1**, mais Réglages affiche un toggle notifications → confirmer s'il s'agit de simples rappels locaux ou si c'est hors scope.
-> - Les écrans **Calendrier** et **règles de répartition (50/30/20)** apparaissent dans la maquette mais ne sont pas explicitement priorisés MoSCoW dans le CDC → confirmer leur statut (MUST/SHOULD/COULD).
+> **État de l'intégration (au 2026-06-20)** : écrans **01 à 06 implémentés** (UI + données d'exemple `src/lib/mock.ts`, charte Rin Studio). Reste : **07 Calendrier** (non implémenté), branchement Supabase, auth.
+>
+> **Divergences maquette ↔ CDC — suivi** :
+> - ~~Toggle notifications~~ → **résolu** : la maquette l'intitule « Rappel quotidien » = **rappel local** (pas de push), conforme au WON'T V1. Implémenté comme préférence locale (toggle UI).
+> - **Calendrier (07a/07b)** : présent dans la maquette, **non priorisé** MoSCoW → statut à confirmer avec Rin avant implémentation (probable COULD/SHOULD).
+> - **Règle de répartition (50/30/20)** : implémentée dans Réglages (affichage). À confirmer si elle doit piloter réellement le budget (calculs) ou rester indicative.
+
+> ⚠️ Important : la maquette Figma utilise une palette générique (slate/bleu/vert, Inter) **différente** de la charte. Décision de Rin : **suivre la charte Rin Studio du CDC** (couleurs §3 + Cabinet Grotesk/Satoshi), en reprenant la structure des écrans Figma. Mapping appliqué : carte solde→Plum, revenus/positif→Succès, dépenses→Soft Violet, épargne→Plum, FAB/actions→Plum.
 
 ## 5. Périmètre V1 (MoSCoW)
 
@@ -127,22 +132,40 @@ Toutes les tables portent un `user_id` (FK auth, RLS activée). À affiner lors 
 ```
 src/
   app/
-    layout.tsx        # locale fr, métadonnées, viewport/theme-color, enregistrement SW
-    page.tsx          # placeholder d'accueil (à remplacer par l'écran 01)
-    globals.css       # @theme : tokens charte Rin Studio + polices Fontshare
-    manifest.ts       # manifest PWA natif (compatible Turbopack)
+    layout.tsx              # racine : locale fr, métadonnées, viewport/theme-color, SW
+    globals.css             # @theme : tokens charte Rin Studio + polices Fontshare
+    manifest.ts             # manifest PWA natif (compatible Turbopack)
+    (tabs)/                 # groupe de routes des 5 onglets (cadre mobile + nav + FAB)
+      layout.tsx            # coquille : cadre centré responsive, QuickEntry, BottomNav
+      page.tsx              # 01 — Aujourd'hui
+      budget/page.tsx       # 02 — Budget
+      epargne/page.tsx      # 03 — Épargne
+      bilan/page.tsx        # 04 — Bilan
+      reglages/page.tsx     # 05 — Réglages
   components/
+    BottomNav.tsx           # nav basse 5 onglets (actif = Deep Plum)
+    QuickEntry.tsx          # 06 — Saisie rapide : FAB (+) + feuille modale
+    MonthSelector.tsx       # sélecteur de mois ‹ ›  réutilisable
+    PlaceholderScreen.tsx   # écran provisoire générique
     ServiceWorkerRegister.tsx
-  lib/supabase/
-    client.ts         # client navigateur (Composants Client)
-    server.ts         # client serveur (RSC / Route Handlers / Server Actions)
-    middleware.ts     # updateSession() : refresh session + garde d'auth
-  proxy.ts            # ex-middleware (convention Next 16) ; redirige vers /login si non connecté
+    budget/BudgetView.tsx
+    reglages/ReglagesView.tsx
+    today/ChargeRow.tsx
+  lib/
+    format.ts               # formatEuro() — € FR, espaces insécables normalisées
+    mock.ts                 # données d'exemple (à remplacer par Supabase)
+    supabase/
+      client.ts             # client navigateur (Composants Client)
+      server.ts             # client serveur (RSC / Route Handlers / Server Actions)
+      middleware.ts         # updateSession() : refresh session + garde d'auth
+  proxy.ts                  # ex-middleware (convention Next 16) ; redirige vers /login
 public/
-  sw.js               # service worker offline basique
-  icon.svg            # icône PWA (placeholder — exporter des PNG 192/512 depuis Figma)
-docs/                 # CDC + lien maquette (sources de référence)
+  sw.js                     # service worker offline basique
+  icon.svg                  # icône PWA (placeholder — exporter des PNG 192/512 depuis Figma)
+docs/                       # CDC + lien maquette (sources de référence)
 ```
+
+> **Données** : tous les écrans sont alimentés par `src/lib/mock.ts` (données d'exemple) en attendant le branchement Supabase. L'app est **présentationnelle** pour l'instant.
 
 **Décisions d'architecture (init) :**
 - **PWA sans plugin webpack.** Next 16 utilise Turbopack par défaut ; les plugins type `next-pwa` (webpack) ne sont pas fiables. On utilise donc le `manifest.ts` natif de Next + un service worker écrit à la main (`public/sw.js`) → compatible tout bundler, couvre l'« offline basique » du CDC. Évolution possible : Serwist.
