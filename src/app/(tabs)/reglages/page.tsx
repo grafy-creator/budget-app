@@ -1,11 +1,5 @@
-import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+import { ReglagesView } from "@/components/reglages/ReglagesView";
 
 export default function ReglagesPage() {
-  return (
-    <PlaceholderScreen
-      icon="⚙️"
-      title="Réglages"
-      note="Revenus de référence, règles de répartition, récurrences, notifications et réinitialisation."
-    />
-  );
+  return <ReglagesView />;
 }
