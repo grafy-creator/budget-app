@@ -1,11 +1,5 @@
-import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+import { BudgetView } from "@/components/budget/BudgetView";
 
 export default function BudgetPage() {
-  return (
-    <PlaceholderScreen
-      icon="📊"
-      title="Budget"
-      note="Budget par enveloppes : charges fixes et dépenses variables, suivi du dépensé et du reste."
-    />
-  );
+  return <BudgetView />;
 }

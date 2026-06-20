@@ -8,6 +8,12 @@ const eur = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 2,
 });
 
+// Espace insécable normale (U+00A0) — lisible et qui ne casse pas en fin de ligne.
+const NBSP = " ";
+
 export function formatEuro(amount: number): string {
-  return eur.format(amount).replace(/ /g, " ");
+  // ICU utilise une espace fine insécable (U+202F) comme séparateur de milliers
+  // et avant le « € » ; elle est quasi invisible aux petites tailles. On
+  // normalise toutes les espaces (fine insécable, insécable, normale) en U+00A0.
+  return eur.format(amount).replace(/[  \s]+/g, NBSP);
 }
