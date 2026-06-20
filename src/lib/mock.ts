@@ -83,6 +83,59 @@ export const budget = {
     { id: "courses", label: "Courses", date: "3 avr", amount: 85, icon: "🛒" },
     { id: "restaurant", label: "Restaurant", date: "5 avr", amount: 42, icon: "🍽️" },
   ] satisfies VariableExpense[],
+  // Revenus du mois — distinction fixe (alternance) / freelance variable.
+  income: [
+    {
+      id: "alternance",
+      label: "Alternance",
+      source: "Salaire mensuel",
+      date: "2 avr",
+      amount: 850,
+      subtype: "fixe",
+      icon: "🎓",
+    },
+    {
+      id: "freelance-logo",
+      label: "Refonte logo",
+      source: "Studio Rin",
+      date: "8 avr",
+      amount: 1200,
+      subtype: "freelance",
+      icon: "💻",
+    },
+    {
+      id: "freelance-affiche",
+      label: "Affiche concert",
+      source: "Client — Mathéo",
+      date: "22 avr",
+      amount: 600,
+      subtype: "freelance",
+      icon: "🎨",
+    },
+  ] satisfies IncomeEntry[],
+  // Versements d'épargne du mois (objectif vs réel).
+  savingsBudget: 500,
+  savingsContributions: [
+    { id: "livret-a", label: "Livret A", amount: 200, icon: "🐷" },
+    { id: "pel", label: "PEL", amount: 100, icon: "🏦" },
+  ] satisfies SavingsContribution[],
+};
+
+export type IncomeEntry = {
+  id: string;
+  label: string;
+  source: string;
+  date: string;
+  amount: number;
+  subtype: "fixe" | "freelance";
+  icon: string;
+};
+
+export type SavingsContribution = {
+  id: string;
+  label: string;
+  amount: number;
+  icon: string;
 };
 
 export type SavingsAccount = {

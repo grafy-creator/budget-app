@@ -117,7 +117,7 @@ export function BudgetView() {
         ))}
       </div>
 
-      {tab === "Dépenses" ? (
+      {tab === "Dépenses" && (
         <>
           {/* Carte résumé */}
           <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
@@ -220,16 +220,160 @@ export function BudgetView() {
             ))}
           </section>
         </>
-      ) : (
-        <section className="flex min-h-[40dvh] flex-col items-center justify-center gap-2 text-center">
-          <span className="text-3xl" aria-hidden>
-            {tab === "Revenus" ? "💰" : "🐷"}
-          </span>
-          <p className="text-sm text-graphite/60">
-            Vue « {tab} » à venir.
-          </p>
-        </section>
       )}
+
+      {tab === "Revenus" && <RevenusTab />}
+
+      {tab === "Épargne" && <EpargneTab />}
     </div>
+  );
+}
+
+/** Onglet Revenus : distinction fixe (alternance) / freelance variable. */
+function RevenusTab() {
+  const fixe = budget.income
+    .filter((r) => r.subtype === "fixe")
+    .reduce((s, r) => s + r.amount, 0);
+  const freelance = budget.income
+    .filter((r) => r.subtype === "freelance")
+    .reduce((s, r) => s + r.amount, 0);
+  const total = fixe + freelance;
+
+  return (
+    <>
+      {/* Répartition fixe / freelance */}
+      <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs font-medium text-graphite/60">
+            Total des revenus
+          </span>
+          <span className="font-display text-xl font-extrabold text-success">
+            {formatEuro(total)}
+          </span>
+        </div>
+        {/* Barre empilée fixe / freelance */}
+        <div className="flex h-2 w-full overflow-hidden rounded-full bg-graphite/10">
+          <div className="h-full bg-plum" style={{ width: `${(fixe / total) * 100}%` }} />
+          <div
+            className="h-full bg-violet"
+            style={{ width: `${(freelance / total) * 100}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="flex items-center gap-1.5 text-graphite/60">
+            <span className="size-2 rounded-sm bg-plum" /> Fixe {formatEuro(fixe)}
+          </span>
+          <span className="flex items-center gap-1.5 text-graphite/60">
+            <span className="size-2 rounded-sm bg-violet" /> Freelance{" "}
+            {formatEuro(freelance)}
+          </span>
+        </div>
+      </section>
+
+      {/* Liste des revenus */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
+          Entrées du mois
+        </h2>
+        {budget.income.map((r) => (
+          <div
+            key={r.id}
+            className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+          >
+            <span
+              className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+              aria-hidden
+            >
+              {r.icon}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold text-graphite">
+                  {r.label}
+                </p>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                    r.subtype === "fixe"
+                      ? "bg-plum/10 text-plum"
+                      : "bg-violet/15 text-violet"
+                  }`}
+                >
+                  {r.subtype === "fixe" ? "Fixe" : "Freelance"}
+                </span>
+              </div>
+              <p className="truncate text-[11px] text-graphite/55">
+                {r.source} · {r.date}
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-bold text-success">
+              +{formatEuro(r.amount)}
+            </span>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
+/** Onglet Épargne : versements du mois (objectif vs réel). */
+function EpargneTab() {
+  const actual = budget.savingsContributions.reduce((s, c) => s + c.amount, 0);
+  const pct = Math.min(100, Math.round((actual / budget.savingsBudget) * 100));
+
+  return (
+    <>
+      <section className="flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-graphite/60">
+            Épargné ce mois
+          </span>
+          <span className="text-sm font-bold text-graphite">
+            {formatEuro(actual)} / {formatEuro(budget.savingsBudget)}
+          </span>
+        </div>
+        <div
+          className="h-2 w-full overflow-hidden rounded-full bg-graphite/10"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Épargne du mois : ${pct}%`}
+        >
+          <div className="h-full rounded-full bg-plum" style={{ width: `${pct}%` }} />
+        </div>
+        {actual < budget.savingsBudget && (
+          <p className="text-[11px] font-semibold text-warning">
+            {`Reste ${formatEuro(
+              budget.savingsBudget - actual,
+            )} pour atteindre l'objectif du mois.`}
+          </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
+          Versements du mois
+        </h2>
+        {budget.savingsContributions.map((c) => (
+          <div
+            key={c.id}
+            className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+          >
+            <span
+              className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+              aria-hidden
+            >
+              {c.icon}
+            </span>
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+              {c.label}
+            </p>
+            <span className="shrink-0 text-sm font-bold text-plum">
+              +{formatEuro(c.amount)}
+            </span>
+          </div>
+        ))}
+      </section>
+    </>
   );
 }
