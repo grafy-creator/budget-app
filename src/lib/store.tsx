@@ -5,11 +5,13 @@ import {
   budget as mockBudget,
   savings as mockSavings,
   categories as mockCategories,
+  incomeTypes as mockIncomeTypes,
   type FixedCharge,
   type VariableExpense,
   type IncomeEntry,
   type SavingsAccount,
   type Category,
+  type IncomeType,
 } from "./mock";
 
 /**
@@ -19,7 +21,16 @@ import {
  * À remplacer par Supabase pour la persistance.
  */
 
-type Settings = { revenuCible: number; reminder: boolean };
+export type RuleKey = "besoins" | "envies" | "epargne";
+
+type Settings = {
+  revenuCible: number;
+  reminder: boolean;
+  // Règle de répartition (pourcentages).
+  pctBesoins: number;
+  pctEnvies: number;
+  pctEpargne: number;
+};
 
 type Store = {
   charges: FixedCharge[];
@@ -27,6 +38,7 @@ type Store = {
   income: IncomeEntry[];
   accounts: SavingsAccount[];
   categories: Category[];
+  incomeTypes: IncomeType[];
   settings: Settings;
 
   // Charges fixes (= récurrences)
@@ -55,8 +67,14 @@ type Store = {
   updateCategory: (id: string, patch: Partial<Category>) => void;
   removeCategory: (id: string) => void;
 
+  // Natures de revenu
+  addIncomeType: (data: Omit<IncomeType, "id">) => void;
+  updateIncomeType: (id: string, patch: Partial<IncomeType>) => void;
+  removeIncomeType: (id: string) => void;
+
   setRevenuCible: (n: number) => void;
   setReminder: (b: boolean) => void;
+  setRulePct: (key: RuleKey, pct: number) => void;
 };
 
 const DataContext = createContext<Store | null>(null);
@@ -84,9 +102,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>(() =>
     clone(mockCategories),
   );
+  const [incomeTypes, setIncomeTypes] = useState<IncomeType[]>(() =>
+    clone(mockIncomeTypes),
+  );
   const [settings, setSettings] = useState<Settings>({
     revenuCible: 2500,
     reminder: true,
+    pctBesoins: 50,
+    pctEnvies: 30,
+    pctEpargne: 20,
   });
 
   const value = useMemo<Store>(
@@ -96,6 +120,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       income,
       accounts,
       categories,
+      incomeTypes,
       settings,
 
       updateCharge: (id, patch) =>
@@ -139,10 +164,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ),
       removeCategory: (id) => setCategories((l) => l.filter((c) => c.id !== id)),
 
+      addIncomeType: (data) =>
+        setIncomeTypes((l) => [...l, { ...data, id: uid() }]),
+      updateIncomeType: (id, patch) =>
+        setIncomeTypes((l) =>
+          l.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        ),
+      removeIncomeType: (id) =>
+        setIncomeTypes((l) => l.filter((t) => t.id !== id)),
+
       setRevenuCible: (n) => setSettings((s) => ({ ...s, revenuCible: n })),
       setReminder: (b) => setSettings((s) => ({ ...s, reminder: b })),
+      setRulePct: (key, pct) =>
+        setSettings((s) => ({
+          ...s,
+          ...(key === "besoins"
+            ? { pctBesoins: pct }
+            : key === "envies"
+              ? { pctEnvies: pct }
+              : { pctEpargne: pct }),
+        })),
     }),
-    [charges, variables, income, accounts, categories, settings],
+    [charges, variables, income, accounts, categories, incomeTypes, settings],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

@@ -1,17 +1,92 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EditableAmount } from "@/components/EditableAmount";
-import { useData } from "@/lib/store";
+import { formatEuro } from "@/lib/format";
+import { useData, type RuleKey } from "@/lib/store";
 
-const RULES = [
-  { id: "besoins", label: "Charges fixes (Besoins)", pct: 50, bar: "bg-plum" },
-  { id: "envies", label: "Variables (Envies)", pct: 30, bar: "bg-violet" },
-  { id: "epargne", label: "Épargne", pct: 20, bar: "bg-success" },
+const RULES: { key: RuleKey; label: string; bar: string }[] = [
+  { key: "besoins", label: "Charges fixes (Besoins)", bar: "bg-plum" },
+  { key: "envies", label: "Variables (Envies)", bar: "bg-violet" },
+  { key: "epargne", label: "Épargne", bar: "bg-success" },
 ];
 
 const ICONS = ["🏠", "📺", "🎵", "📱", "💡", "🚗", "🏋️", "📦"];
 const CAT_ICONS = ["🛒", "🍽️", "🚗", "💊", "🎮", "📦", "👕", "🎁", "☕", "🐾"];
+
+/** Ligne de règle : pourcentage et montant liés (calculés sur le revenu cible). */
+function RuleRow({
+  label,
+  bar,
+  pct,
+  revenu,
+  onChangePct,
+}: {
+  label: string;
+  bar: string;
+  pct: number;
+  revenu: number;
+  onChangePct: (pct: number) => void;
+}) {
+  const amount = Math.round((revenu * pct) / 100);
+  const [pctDraft, setPctDraft] = useState(String(pct));
+  const [amtDraft, setAmtDraft] = useState(String(amount));
+
+  useEffect(() => {
+    setPctDraft(String(pct));
+    setAmtDraft(String(Math.round((revenu * pct) / 100)));
+  }, [pct, revenu]);
+
+  const clamp = (n: number) => Math.max(0, Math.min(100, n));
+
+  function commitPct() {
+    onChangePct(clamp(parseInt(pctDraft || "0", 10) || 0));
+  }
+  function commitAmt() {
+    const a = parseFloat(amtDraft.replace(",", ".")) || 0;
+    onChangePct(revenu > 0 ? clamp(Math.round((a / revenu) * 100)) : 0);
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-xs font-medium text-graphite/70">
+          {label}
+        </span>
+        <div className="flex shrink-0 items-center gap-2 text-xs font-bold text-graphite">
+          <span className="flex items-center rounded-md bg-graphite/5 px-2 py-1">
+            <input
+              inputMode="numeric"
+              value={pctDraft}
+              onChange={(e) => setPctDraft(e.target.value.replace(/[^0-9]/g, ""))}
+              onBlur={commitPct}
+              onKeyDown={(e) => e.key === "Enter" && commitPct()}
+              aria-label={`Pourcentage ${label}`}
+              className="w-7 bg-transparent text-right outline-none"
+            />
+            %
+          </span>
+          <span className="text-graphite/25">·</span>
+          <span className="flex items-center rounded-md bg-graphite/5 px-2 py-1">
+            <input
+              inputMode="numeric"
+              value={amtDraft}
+              onChange={(e) => setAmtDraft(e.target.value.replace(/[^0-9]/g, ""))}
+              onBlur={commitAmt}
+              onKeyDown={(e) => e.key === "Enter" && commitAmt()}
+              aria-label={`Montant ${label}`}
+              className="w-12 bg-transparent text-right outline-none"
+            />
+            €
+          </span>
+        </div>
+      </div>
+      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-graphite/10">
+        <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -47,9 +122,14 @@ export function ReglagesView() {
     addCategory,
     updateCategory,
     removeCategory,
+    incomeTypes,
+    addIncomeType,
+    updateIncomeType,
+    removeIncomeType,
     settings,
     setRevenuCible,
     setReminder,
+    setRulePct,
   } = useData();
 
   const [revenuDraft, setRevenuDraft] = useState(String(settings.revenuCible));
@@ -70,7 +150,23 @@ export function ReglagesView() {
     setCatForm(null);
   }
 
-  const total = RULES.reduce((sum, r) => sum + r.pct, 0);
+  const pctByKey: Record<RuleKey, number> = {
+    besoins: settings.pctBesoins,
+    envies: settings.pctEnvies,
+    epargne: settings.pctEpargne,
+  };
+  const total = settings.pctBesoins + settings.pctEnvies + settings.pctEpargne;
+  const totalAmount = Math.round((settings.revenuCible * total) / 100);
+
+  const [typeForm, setTypeForm] = useState<{ id: string | null; label: string } | null>(
+    null,
+  );
+  function saveType() {
+    if (!typeForm || !typeForm.label.trim()) return;
+    if (typeForm.id) updateIncomeType(typeForm.id, { label: typeForm.label.trim() });
+    else addIncomeType({ label: typeForm.label.trim() });
+    setTypeForm(null);
+  }
 
   function openNew() {
     setForm({ ...EMPTY_FORM });
@@ -144,20 +240,23 @@ export function ReglagesView() {
         <SectionTitle>Ma règle budgétaire</SectionTitle>
         <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
           {RULES.map((r) => (
-            <div key={r.id}>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-graphite/70">{r.label}</span>
-                <span className="font-bold text-graphite">{r.pct}%</span>
-              </div>
-              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-graphite/10">
-                <div
-                  className={`h-full rounded-full ${r.bar}`}
-                  style={{ width: `${r.pct}%` }}
-                />
-              </div>
-            </div>
+            <RuleRow
+              key={r.key}
+              label={r.label}
+              bar={r.bar}
+              pct={pctByKey[r.key]}
+              revenu={settings.revenuCible}
+              onChangePct={(pct) => setRulePct(r.key, pct)}
+            />
           ))}
-          <p className="text-xs font-bold text-success">Total : {total}% ✓</p>
+          <p
+            className={`text-xs font-bold ${
+              total === 100 ? "text-success" : "text-warning"
+            }`}
+          >
+            Total : {total}% · {formatEuro(totalAmount)}{" "}
+            {total === 100 ? "✓" : "⚠️ (vise 100 %)"}
+          </p>
         </div>
       </section>
 
@@ -382,6 +481,82 @@ export function ReglagesView() {
             {categories.length === 0 && (
               <p className="py-2 text-center text-xs text-graphite/40">
                 Aucune catégorie.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Types de revenus */}
+      <section className="flex flex-col gap-2">
+        <SectionTitle>Mes natures de revenu</SectionTitle>
+        <div className="flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm">
+          {!typeForm && (
+            <button
+              type="button"
+              onClick={() => setTypeForm({ id: null, label: "" })}
+              className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+            >
+              + Ajouter une nature de revenu
+            </button>
+          )}
+
+          {typeForm && (
+            <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
+              <input
+                value={typeForm.label}
+                onChange={(e) => setTypeForm({ ...typeForm, label: e.target.value })}
+                placeholder="Nom (ex : Aides, Loyers perçus…)"
+                aria-label="Nom de la nature de revenu"
+                className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTypeForm(null)}
+                  className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={saveType}
+                  disabled={!typeForm.label.trim()}
+                  className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  {typeForm.id ? "Enregistrer" : "Ajouter"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {incomeTypes.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-1.5 rounded-full bg-graphite/5 py-1.5 pl-3 pr-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => setTypeForm({ id: t.id, label: t.label })}
+                  aria-label={`Modifier ${t.label}`}
+                  className="text-sm font-medium text-graphite"
+                >
+                  {t.label}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Supprimer ${t.label}`}
+                  onClick={() => removeIncomeType(t.id)}
+                  className="flex size-5 items-center justify-center rounded-full text-graphite/40 transition hover:bg-error/10 hover:text-error"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {incomeTypes.length === 0 && (
+              <p className="py-2 text-center text-xs text-graphite/40">
+                Aucune nature de revenu.
               </p>
             )}
           </div>

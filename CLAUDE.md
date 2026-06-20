@@ -77,7 +77,8 @@ Maquette : frames de **390 × 844**. 5 onglets de navigation basse + 1 feuille m
 > **Divergences maquette ↔ CDC — suivi** :
 > - ~~Toggle notifications~~ → **résolu** : la maquette l'intitule « Rappel quotidien » = **rappel local** (pas de push), conforme au WON'T V1. Implémenté comme préférence locale (toggle UI).
 > - ~~Calendrier (07)~~ → **décidé par Rin (2026-06-20) : à construire** ; implémenté à `/calendrier` (accès via l'icône 📅 de l'écran Aujourd'hui).
-> - **Règle de répartition (50/30/20)** : implémentée dans Réglages (affichage indicatif). À confirmer si elle doit piloter réellement les calculs de budget.
+> - **Règle de répartition (50/30/20)** : éditable dans Réglages — pourcentage **et** montant côte à côte, liés (le montant = revenu cible × %, et inversement). Reste indicative (n'impose pas encore les enveloppes).
+> - **Natures de revenu (fixe/freelance)** : à la demande de Rin (2026-06-21), rendues **personnalisables** dans Réglages (ajouter/renommer/supprimer), comme les catégories. Seeds par défaut = « Fixe (alternance) » et « Freelance » → la distinction du CDC reste le défaut. Le graphique des revenus se répartit par nature (couleurs par ordre).
 
 > ⚠️ Important : la maquette Figma utilise une palette générique (slate/bleu/vert, Inter) **différente** de la charte. Décision de Rin : **suivre la charte Rin Studio du CDC** (couleurs §3 + Cabinet Grotesk/Satoshi), en reprenant la structure des écrans Figma. Mapping appliqué : carte solde→Plum, revenus/positif→Succès, dépenses→Soft Violet, épargne→Plum, FAB/actions→Plum.
 

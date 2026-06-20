@@ -284,28 +284,48 @@ export function BudgetView() {
 
 const INCOME_ICONS = ["🎓", "💻", "🎨", "💰", "🏦", "📈", "🎁", "📦"];
 
+// Palette de couleurs pour les natures de revenu (par ordre d'apparition).
+const TYPE_PALETTE = [
+  { bar: "bg-plum", dot: "bg-plum", chipBg: "bg-plum/10", chipText: "text-plum" },
+  { bar: "bg-violet", dot: "bg-violet", chipBg: "bg-violet/15", chipText: "text-violet" },
+  { bar: "bg-success", dot: "bg-success", chipBg: "bg-success/15", chipText: "text-success" },
+  { bar: "bg-warning", dot: "bg-warning", chipBg: "bg-warning/15", chipText: "text-warning" },
+  { bar: "bg-lavender", dot: "bg-lavender", chipBg: "bg-lavender/50", chipText: "text-plum" },
+];
+const paletteFor = (i: number) =>
+  TYPE_PALETTE[((i % TYPE_PALETTE.length) + TYPE_PALETTE.length) % TYPE_PALETTE.length];
+
 type IncomeForm = {
   id: string | null;
   icon: string;
   label: string;
   source: string;
-  subtype: "fixe" | "freelance";
+  typeId: string;
   amount: string;
   date: string;
 };
 
-/** Onglet Revenus : distinction fixe (alternance) / freelance variable. */
+/** Onglet Revenus : répartition par nature (natures gérées dans les Réglages). */
 function RevenusTab() {
-  const { income, addIncome, updateIncome, removeIncome } = useData();
+  const { income, incomeTypes, addIncome, updateIncome, removeIncome } =
+    useData();
   const [form, setForm] = useState<IncomeForm | null>(null);
 
-  const fixe = income
-    .filter((r) => r.subtype === "fixe")
-    .reduce((s, r) => s + r.amount, 0);
-  const freelance = income
-    .filter((r) => r.subtype === "freelance")
-    .reduce((s, r) => s + r.amount, 0);
-  const total = fixe + freelance || 1;
+  const grandTotal = income.reduce((s, r) => s + r.amount, 0);
+  const total = grandTotal || 1;
+  const perType = incomeTypes
+    .map((t, i) => ({
+      type: t,
+      palette: paletteFor(i),
+      amount: income
+        .filter((r) => r.typeId === t.id)
+        .reduce((s, r) => s + r.amount, 0),
+    }))
+    .filter((x) => x.amount > 0);
+
+  const typeIndex = (id: string) => incomeTypes.findIndex((t) => t.id === id);
+  const typeLabel = (id: string) =>
+    incomeTypes.find((t) => t.id === id)?.label ?? "Autre";
 
   function openNew() {
     setForm({
@@ -313,7 +333,7 @@ function RevenusTab() {
       icon: "💻",
       label: "",
       source: "",
-      subtype: "freelance",
+      typeId: incomeTypes[0]?.id ?? "",
       amount: "",
       date: TODAY_ISO,
     });
@@ -326,7 +346,7 @@ function RevenusTab() {
       icon: r.icon,
       label: r.label,
       source: r.source,
-      subtype: r.subtype,
+      typeId: r.typeId,
       amount: String(r.amount),
       date: r.date,
     });
@@ -338,7 +358,7 @@ function RevenusTab() {
       icon: form.icon,
       label: form.label.trim(),
       source: form.source.trim() || "—",
-      subtype: form.subtype,
+      typeId: form.typeId || incomeTypes[0]?.id || "",
       amount,
       date: form.date,
     };
@@ -355,24 +375,28 @@ function RevenusTab() {
             Total des revenus
           </span>
           <span className="font-display text-xl font-extrabold text-success">
-            {formatEuro(fixe + freelance)}
+            {formatEuro(grandTotal)}
           </span>
         </div>
         <div className="flex h-2 w-full overflow-hidden rounded-full bg-graphite/10">
-          <div className="h-full bg-plum" style={{ width: `${(fixe / total) * 100}%` }} />
-          <div
-            className="h-full bg-violet"
-            style={{ width: `${(freelance / total) * 100}%` }}
-          />
+          {perType.map((p) => (
+            <div
+              key={p.type.id}
+              className={`h-full ${p.palette.bar}`}
+              style={{ width: `${(p.amount / total) * 100}%` }}
+            />
+          ))}
         </div>
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="flex items-center gap-1.5 text-graphite/60">
-            <span className="size-2 rounded-sm bg-plum" /> Fixe {formatEuro(fixe)}
-          </span>
-          <span className="flex items-center gap-1.5 text-graphite/60">
-            <span className="size-2 rounded-sm bg-violet" /> Freelance{" "}
-            {formatEuro(freelance)}
-          </span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+          {perType.map((p) => (
+            <span key={p.type.id} className="flex items-center gap-1.5 text-graphite/60">
+              <span className={`size-2 rounded-sm ${p.palette.dot}`} /> {p.type.label}{" "}
+              {formatEuro(p.amount)}
+            </span>
+          ))}
+          {perType.length === 0 && (
+            <span className="text-graphite/40">Aucune entrée ce mois.</span>
+          )}
         </div>
       </section>
 
@@ -391,62 +415,68 @@ function RevenusTab() {
           </button>
         )}
 
-        {form && <IncomeFormPanel form={form} setForm={setForm} onSave={save} />}
+        {form && (
+          <IncomeFormPanel
+            form={form}
+            setForm={setForm}
+            incomeTypes={incomeTypes}
+            onSave={save}
+          />
+        )}
 
-        {income.map((r) => (
-          <div
-            key={r.id}
-            className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
-          >
-            <button
-              type="button"
-              onClick={() => openEdit(r.id)}
-              aria-label={`Modifier ${r.label}`}
-              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        {income.map((r) => {
+          const pal = paletteFor(Math.max(0, typeIndex(r.typeId)));
+          return (
+            <div
+              key={r.id}
+              className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
             >
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
-                aria-hidden
+              <button
+                type="button"
+                onClick={() => openEdit(r.id)}
+                aria-label={`Modifier ${r.label}`}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
-                {r.icon}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-graphite">
-                    {r.label}
+                <span
+                  className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-lavender/30 text-base"
+                  aria-hidden
+                >
+                  {r.icon}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold text-graphite">
+                      {r.label}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${pal.chipBg} ${pal.chipText}`}
+                    >
+                      {typeLabel(r.typeId)}
+                    </span>
                   </span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                      r.subtype === "fixe"
-                        ? "bg-plum/10 text-plum"
-                        : "bg-violet/15 text-violet"
-                    }`}
-                  >
-                    {r.subtype === "fixe" ? "Fixe" : "Freelance"}
+                  <span className="block truncate text-[11px] text-graphite/55">
+                    {r.source} · {formatDateShort(r.date)}
                   </span>
                 </span>
-                <span className="block truncate text-[11px] text-graphite/55">
-                  {r.source} · {formatDateShort(r.date)}
-                </span>
-              </span>
-            </button>
-            <EditableAmount
-              value={r.amount}
-              onCommit={(n) => updateIncome(r.id, { amount: n })}
-              sign="plus"
-              ariaLabel={`Montant de ${r.label}`}
-              className="shrink-0 text-sm font-bold text-success"
-            />
-            <button
-              type="button"
-              aria-label={`Supprimer ${r.label}`}
-              onClick={() => removeIncome(r.id)}
-              className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
+              </button>
+              <EditableAmount
+                value={r.amount}
+                onCommit={(n) => updateIncome(r.id, { amount: n })}
+                sign="plus"
+                ariaLabel={`Montant de ${r.label}`}
+                className="shrink-0 text-sm font-bold text-success"
+              />
+              <button
+                type="button"
+                aria-label={`Supprimer ${r.label}`}
+                onClick={() => removeIncome(r.id)}
+                className="flex size-7 shrink-0 items-center justify-center rounded-full text-graphite/30 transition hover:bg-error/10 hover:text-error"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
         {income.length === 0 && !form && (
           <p className="py-2 text-center text-xs text-graphite/40">
             Aucun revenu. Ajoute-en un avec le bouton ci-dessus.
@@ -461,29 +491,31 @@ function RevenusTab() {
 function IncomeFormPanel({
   form,
   setForm,
+  incomeTypes,
   onSave,
 }: {
   form: IncomeForm;
   setForm: (f: IncomeForm | null) => void;
+  incomeTypes: { id: string; label: string }[];
   onSave: () => void;
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
-      {/* Nature : fixe / freelance */}
-      <div className="grid grid-cols-2 gap-2">
-        {(["fixe", "freelance"] as const).map((st) => (
+      {/* Nature du revenu (gérée dans les Réglages) */}
+      <div className="flex flex-wrap gap-1.5">
+        {incomeTypes.map((t) => (
           <button
-            key={st}
+            key={t.id}
             type="button"
-            aria-pressed={form.subtype === st}
-            onClick={() => setForm({ ...form, subtype: st })}
-            className={`rounded-lg py-2 text-xs font-bold transition ${
-              form.subtype === st
+            aria-pressed={form.typeId === t.id}
+            onClick={() => setForm({ ...form, typeId: t.id })}
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+              form.typeId === t.id
                 ? "bg-lavender/50 text-plum"
                 : "bg-white text-graphite/60"
             }`}
           >
-            {st === "fixe" ? "Fixe (alternance)" : "Freelance"}
+            {t.label}
           </button>
         ))}
       </div>

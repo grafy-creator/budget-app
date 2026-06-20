@@ -13,14 +13,20 @@ const TYPES = [
 type TypeId = (typeof TYPES)[number]["id"];
 
 export function QuickEntry() {
-  const { accounts, categories, addVariable, addIncome, addContribution } =
-    useData();
+  const {
+    accounts,
+    categories,
+    incomeTypes,
+    addVariable,
+    addIncome,
+    addContribution,
+  } = useData();
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<TypeId>("depense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string | null>(null);
-  const [subtype, setSubtype] = useState<"fixe" | "freelance">("freelance");
+  const [typeId, setTypeId] = useState<string>("");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [date, setDate] = useState(TODAY_ISO);
   const [note, setNote] = useState("");
@@ -50,6 +56,13 @@ export function QuickEntry() {
     }
   }, [open]);
 
+  // Pré-sélectionne la 1ère nature de revenu.
+  useEffect(() => {
+    if (type === "revenu" && !typeId && incomeTypes[0]) {
+      setTypeId(incomeTypes[0].id);
+    }
+  }, [type, typeId, incomeTypes]);
+
   // Pré-sélectionne le 1er compte pour un versement d'épargne.
   useEffect(() => {
     if (type === "epargne" && !accountId && accounts[0]) {
@@ -61,7 +74,7 @@ export function QuickEntry() {
     setType("depense");
     setAmount("");
     setCategory(null);
-    setSubtype("freelance");
+    setTypeId("");
     setAccountId(null);
     setDate(TODAY_ISO);
     setNote("");
@@ -81,13 +94,14 @@ export function QuickEntry() {
         categoryId: cat.id,
       });
     } else if (type === "revenu") {
+      const t = incomeTypes.find((x) => x.id === typeId);
       addIncome({
-        label: note.trim() || (subtype === "fixe" ? "Salaire" : "Freelance"),
+        label: note.trim() || t?.label || "Revenu",
         source: note.trim() || "—",
         date: date.trim() || "—",
         amount: amountValue,
-        subtype,
-        icon: subtype === "fixe" ? "🎓" : "💻",
+        typeId: typeId || incomeTypes[0]?.id || "",
+        icon: "💰",
       });
     } else if (type === "epargne" && accountId) {
       addContribution(accountId, amountValue);
@@ -247,22 +261,22 @@ export function QuickEntry() {
               </div>
             )}
 
-            {/* Type de revenu (revenu) */}
+            {/* Nature de revenu (gérée dans les Réglages) */}
             {type === "revenu" && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {(["fixe", "freelance"] as const).map((st) => {
-                  const active = subtype === st;
+              <div className="mt-3 flex flex-wrap gap-2">
+                {incomeTypes.map((t) => {
+                  const active = typeId === t.id;
                   return (
                     <button
-                      key={st}
+                      key={t.id}
                       type="button"
                       aria-pressed={active}
-                      onClick={() => setSubtype(st)}
-                      className={`rounded-xl py-2.5 text-sm font-bold transition ${
+                      onClick={() => setTypeId(t.id)}
+                      className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
                         active ? "bg-lavender/40 text-plum" : "bg-graphite/5 text-graphite/60"
                       }`}
                     >
-                      {st === "fixe" ? "Fixe (alternance)" : "Freelance"}
+                      {t.label}
                     </button>
                   );
                 })}

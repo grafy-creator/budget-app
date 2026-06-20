@@ -109,7 +109,7 @@ export const budget = {
       source: "Salaire mensuel",
       date: "2026-04-02",
       amount: 850,
-      subtype: "fixe",
+      typeId: "fixe",
       icon: "🎓",
     },
     {
@@ -118,7 +118,7 @@ export const budget = {
       source: "Studio Rin",
       date: "2026-04-08",
       amount: 1200,
-      subtype: "freelance",
+      typeId: "freelance",
       icon: "💻",
     },
     {
@@ -127,7 +127,7 @@ export const budget = {
       source: "Client — Mathéo",
       date: "2026-04-22",
       amount: 600,
-      subtype: "freelance",
+      typeId: "freelance",
       icon: "🎨",
     },
   ] satisfies IncomeEntry[],
@@ -145,9 +145,20 @@ export type IncomeEntry = {
   source: string;
   date: string;
   amount: number;
-  subtype: "fixe" | "freelance";
+  typeId: string; // référence un IncomeType
   icon: string;
 };
+
+export type IncomeType = {
+  id: string;
+  label: string;
+};
+
+// Natures de revenu personnalisables — par défaut la distinction du CDC.
+export const incomeTypes: IncomeType[] = [
+  { id: "fixe", label: "Fixe (alternance)" },
+  { id: "freelance", label: "Freelance" },
+];
 
 export type SavingsContribution = {
   id: string;
