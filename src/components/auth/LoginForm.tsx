@@ -44,10 +44,18 @@ export function LoginForm() {
         router.push("/");
         router.refresh();
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        setInfo("Compte créé. Vérifie tes e-mails si une confirmation est demandée.");
-        setMode("login");
+        if (data.session) {
+          // Confirmation e-mail désactivée → connectée immédiatement.
+          router.push("/");
+          router.refresh();
+        } else {
+          setInfo(
+            "Compte créé. Vérifie tes e-mails pour confirmer, puis connecte-toi.",
+          );
+          setMode("login");
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");

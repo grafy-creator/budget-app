@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DayOfMonthPicker } from "@/components/DayOfMonthPicker";
 import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
 import { formatDayOfMonth, formatEuro } from "@/lib/format";
+import { createClient } from "@/lib/supabase/client";
 import { useData, type RuleKey } from "@/lib/store";
 
 const RULES: { key: RuleKey; label: string; accent: string }[] = [
@@ -139,6 +141,13 @@ export function ReglagesView() {
     setReminder,
     setRulePct,
   } = useData();
+
+  const router = useRouter();
+  async function logout() {
+    await createClient().auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
 
   const [revenuDraft, setRevenuDraft] = useState(String(settings.revenuCible));
   const [revenuSaved, setRevenuSaved] = useState(false);
@@ -635,9 +644,10 @@ export function ReglagesView() {
 
       <button
         type="button"
-        className="rounded-xl bg-error/10 py-3 text-sm font-medium text-error transition active:scale-[0.99]"
+        onClick={logout}
+        className="rounded-xl bg-graphite/5 py-3 text-sm font-semibold text-graphite transition active:scale-[0.99]"
       >
-        Effacer toutes les données
+        Se déconnecter
       </button>
     </div>
   );
