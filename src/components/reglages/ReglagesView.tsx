@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DayOfMonthPicker } from "@/components/DayOfMonthPicker";
 import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
+import { IconPicker } from "@/components/IconPicker";
 import { formatDayOfMonth, formatEuro } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import { useData, type RuleKey } from "@/lib/store";
@@ -236,22 +237,11 @@ export function ReglagesView() {
     if (!form) return null;
     return (
       <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
-        <div className="flex flex-wrap gap-1">
-          {ICONS.map((ic) => (
-            <button
-              key={ic}
-              type="button"
-              onClick={() => setForm({ ...form, icon: ic })}
-              aria-label={`Icône ${ic}`}
-              aria-pressed={form.icon === ic}
-              className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
-                form.icon === ic ? "bg-lavender/60" : "bg-white"
-              }`}
-            >
-              {ic}
-            </button>
-          ))}
-        </div>
+        <IconPicker
+          value={form.icon}
+          onChange={(ic) => setForm({ ...form, icon: ic })}
+          presets={ICONS}
+        />
         <input
           value={form.label}
           onChange={(e) => setForm({ ...form, label: e.target.value })}
@@ -460,22 +450,11 @@ export function ReglagesView() {
 
           {catForm && (
             <div className="flex flex-col gap-2 rounded-xl bg-cloud p-3">
-              <div className="flex flex-wrap gap-1">
-                {CAT_ICONS.map((ic) => (
-                  <button
-                    key={ic}
-                    type="button"
-                    onClick={() => setCatForm({ ...catForm, icon: ic })}
-                    aria-label={`Icône ${ic}`}
-                    aria-pressed={catForm.icon === ic}
-                    className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
-                      catForm.icon === ic ? "bg-lavender/60" : "bg-white"
-                    }`}
-                  >
-                    {ic}
-                  </button>
-                ))}
-              </div>
+              <IconPicker
+                value={catForm.icon}
+                onChange={(ic) => setCatForm({ ...catForm, icon: ic })}
+                presets={CAT_ICONS}
+              />
               <input
                 value={catForm.label}
                 onChange={(e) => setCatForm({ ...catForm, label: e.target.value })}

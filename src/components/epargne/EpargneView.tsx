@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
+import { IconPicker } from "@/components/IconPicker";
 import { formatEuro } from "@/lib/format";
 import { savings as mockSavings } from "@/lib/mock";
 import { useData } from "@/lib/store";
@@ -67,22 +68,11 @@ export function EpargneView() {
         <p className="text-sm font-bold text-graphite">
           {form.id ? "Modifier le compte" : "Nouveau compte d'épargne"}
         </p>
-        <div className="flex flex-wrap gap-1">
-          {ICONS.map((ic) => (
-            <button
-              key={ic}
-              type="button"
-              onClick={() => setForm({ ...form, icon: ic })}
-              aria-label={`Icône ${ic}`}
-              aria-pressed={form.icon === ic}
-              className={`flex size-8 items-center justify-center rounded-lg text-base transition ${
-                form.icon === ic ? "bg-lavender/60" : "bg-graphite/5"
-              }`}
-            >
-              {ic}
-            </button>
-          ))}
-        </div>
+        <IconPicker
+          value={form.icon}
+          onChange={(ic) => setForm({ ...form, icon: ic })}
+          presets={ICONS}
+        />
         <input
           value={form.label}
           onChange={(e) => setForm({ ...form, label: e.target.value })}

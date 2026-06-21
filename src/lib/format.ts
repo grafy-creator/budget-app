@@ -34,8 +34,47 @@ export function formatDateShort(value: string): string {
   return dateShort.format(d).replace(".", "");
 }
 
-/** Date du jour de référence du prototype (l'app est calée sur avril 2026). */
-export const TODAY_ISO = "2026-04-10";
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Date du jour locale au format ISO (YYYY-MM-DD). */
+export function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** Libellé complet du jour, ex : "Samedi 21 juin 2026". */
+export function todayLabel(): string {
+  return cap(
+    new Date().toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+  );
+}
+
+/** Infos sur le mois courant (pour l'Agenda). */
+export function currentMonthInfo() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0–11
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay(); // 0=dim … 6=sam
+  const firstWeekday = firstDow === 0 ? 7 : firstDow; // 1=lun … 7=dim
+  return {
+    year,
+    month,
+    daysInMonth,
+    firstWeekday,
+    todayDay: now.getDate(),
+    prefix: `${year}-${pad2(month + 1)}`,
+    label: cap(
+      now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+    ),
+  };
+}
 
 /** Échéance récurrente : 1 → "Le 1er du mois", 10 → "Le 10 du mois". */
 export function formatDayOfMonth(n: number): string {

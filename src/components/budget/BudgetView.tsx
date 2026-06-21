@@ -9,9 +9,9 @@ import {
   formatDateShort,
   formatDayOfMonth,
   formatEuro,
-  TODAY_ISO,
+  todayISO,
 } from "@/lib/format";
-import { budget as mockBudget, type Category } from "@/lib/mock";
+import { type Category } from "@/lib/mock";
 import { ruleTargets, useData } from "@/lib/store";
 
 const TABS = ["Dépenses", "Revenus", "Épargne"] as const;
@@ -122,7 +122,7 @@ export function BudgetView() {
       categoryId: categories[0]?.id ?? "",
       label: "",
       amount: "",
-      date: TODAY_ISO,
+      date: todayISO(),
     });
   }
   function openEditExpense(id: string) {
@@ -161,7 +161,7 @@ export function BudgetView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <MonthSelector initial={mockBudget.monthLabel} />
+      <MonthSelector />
 
       <div
         role="tablist"
@@ -438,7 +438,7 @@ function RevenusTab() {
       source: "",
       typeId: incomeTypes[0]?.id ?? "",
       amount: "",
-      date: TODAY_ISO,
+      date: todayISO(),
     });
   }
   function openEdit(id: string) {

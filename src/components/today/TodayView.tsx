@@ -1,8 +1,7 @@
 "use client";
 
 import { EditableAmount } from "@/components/EditableAmount";
-import { formatDayOfMonth, formatEuro } from "@/lib/format";
-import { today } from "@/lib/mock";
+import { formatDayOfMonth, formatEuro, todayLabel } from "@/lib/format";
 import { ruleTargets, useData } from "@/lib/store";
 
 function SummaryRow({
@@ -64,7 +63,9 @@ export function TodayView() {
     savingsTarget: targets.epargne,
   };
 
-  const dueToday = charges.filter((c) => c.dueToday);
+  // Charges « du jour » = celles dont l'échéance tombe aujourd'hui (jour du mois).
+  const todayDay = new Date().getDate();
+  const dueToday = charges.filter((c) => c.dayOfMonth === todayDay);
   const outflow = dueToday
     .filter((c) => !c.paid)
     .reduce((s, c) => s + c.amount, 0);
@@ -86,7 +87,7 @@ export function TodayView() {
     <div className="flex min-w-0 flex-col gap-6">
       <header>
         <p className="text-[13px] font-medium text-graphite/55">Bonjour 👋</p>
-        <h1 className="text-xl font-bold text-graphite">{today.dateLabel}</h1>
+        <h1 className="text-xl font-bold text-graphite">{todayLabel()}</h1>
       </header>
 
       {/* Carte solde */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { TODAY_ISO } from "@/lib/format";
+import { todayISO } from "@/lib/format";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
 
@@ -33,7 +33,7 @@ export function QuickEntry() {
   const [category, setCategory] = useState<string | null>(null);
   const [typeId, setTypeId] = useState<string>("");
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [date, setDate] = useState(TODAY_ISO);
+  const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState("");
   const [newCat, setNewCat] = useState<string | null>(null); // saisie nouvelle catégorie
   const [newAcc, setNewAcc] = useState<string | null>(null); // saisie nouveau compte
@@ -55,7 +55,7 @@ export function QuickEntry() {
 
   useEffect(() => {
     if (open) {
-      setDate(initialDate ?? TODAY_ISO);
+      setDate(initialDate ?? todayISO());
       const t = setTimeout(() => amountRef.current?.focus(), 250);
       return () => clearTimeout(t);
     }
@@ -74,7 +74,7 @@ export function QuickEntry() {
     setCategory(null);
     setTypeId("");
     setAccountId(null);
-    setDate(TODAY_ISO);
+    setDate(todayISO());
     setNote("");
     setNewCat(null);
     setNewAcc(null);

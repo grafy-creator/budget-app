@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { MonthSelector } from "@/components/MonthSelector";
 import { formatEuro } from "@/lib/format";
-import { budget as mockBudget } from "@/lib/mock";
 import { ruleTargets, useData } from "@/lib/store";
 
 function signedEuro(amount: number) {
@@ -90,7 +89,7 @@ export function BilanView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <MonthSelector initial={mockBudget.monthLabel} prefix="Bilan — " />
+      <MonthSelector prefix="Bilan — " />
 
       {/* Bandeau de synthèse */}
       <section

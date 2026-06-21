@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { MonthSelector } from "@/components/MonthSelector";
-import { formatEuro } from "@/lib/format";
-import { calendar, type DotKind } from "@/lib/mock";
+import { currentMonthInfo, formatEuro } from "@/lib/format";
+import { type DotKind } from "@/lib/mock";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
 
@@ -21,9 +21,6 @@ const LEGEND: { kind: DotKind; label: string }[] = [
   { kind: "echeance", label: "Échéance à venir aujourd'hui" },
 ];
 
-const MONTH_PREFIX = "2026-04";
-const isoOf = (day: number) => `${MONTH_PREFIX}-${String(day).padStart(2, "0")}`;
-
 type DayEntry = {
   id: string;
   icon: string;
@@ -34,15 +31,21 @@ type DayEntry = {
   dot: DotKind;
 };
 
-function parseAprilDay(iso: string): number | null {
-  const m = iso.match(/^2026-04-(\d{2})$/);
-  return m ? Number(m[1]) : null;
-}
-
 export function CalendarView() {
   const { variables, charges, updateCharge } = useData();
   const { openSheet } = useQuickEntry();
-  const [selected, setSelected] = useState<number | null>(calendar.today);
+
+  const m = currentMonthInfo();
+  const monthName = new Date(m.year, m.month, 1).toLocaleDateString("fr-FR", {
+    month: "long",
+  });
+  const isoOf = (day: number) => `${m.prefix}-${String(day).padStart(2, "0")}`;
+  const parseMonthDay = (iso: string) => {
+    const mm = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return mm && `${mm[1]}-${mm[2]}` === m.prefix ? Number(mm[3]) : null;
+  };
+
+  const [selected, setSelected] = useState<number | null>(m.todayDay);
 
   // Appui long sur un jour → ouvrir la saisie pré-remplie avec cette date.
   const longPressTimer = useRef<number | null>(null);
@@ -77,7 +80,7 @@ export function CalendarView() {
     (byDay[day] ??= []).push(e);
   };
   for (const v of variables) {
-    const d = parseAprilDay(v.date);
+    const d = parseMonthDay(v.date);
     if (d)
       push(d, {
         id: v.id,
@@ -91,7 +94,7 @@ export function CalendarView() {
   for (const c of charges) {
     const d = c.dayOfMonth;
     if (d) {
-      const echeance = !c.paid && d === calendar.today;
+      const echeance = !c.paid && d === m.todayDay;
       push(d, {
         id: c.id,
         icon: c.icon,
@@ -104,10 +107,10 @@ export function CalendarView() {
     }
   }
 
-  const leading = calendar.firstWeekday - 1;
+  const leading = m.firstWeekday - 1;
   const cells: (number | null)[] = [
     ...Array.from({ length: leading }, () => null),
-    ...Array.from({ length: calendar.daysInMonth }, (_, i) => i + 1),
+    ...Array.from({ length: m.daysInMonth }, (_, i) => i + 1),
   ];
 
   const dayItems = selected ? byDay[selected] ?? [] : [];
@@ -115,7 +118,7 @@ export function CalendarView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <MonthSelector initial={calendar.monthLabel} />
+      <MonthSelector />
 
       {/* Grille du mois */}
       <section className="rounded-3xl bg-white p-3 shadow-sm">
@@ -141,7 +144,7 @@ export function CalendarView() {
                 key={day}
                 type="button"
                 aria-pressed={isSelected}
-                aria-label={`${day} avril${
+                aria-label={`${day} ${monthName}${
                   dots.length ? `, ${dots.length} opération(s)` : ""
                 } — appui long pour ajouter`}
                 onClick={() => handleDayClick(day)}
@@ -197,7 +200,9 @@ export function CalendarView() {
       {selected && (
         <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-graphite">📅 {selected} avril</h2>
+            <h2 className="text-sm font-bold text-graphite">
+              📅 {selected} {monthName}
+            </h2>
             {dayItems.length > 0 && (
               <span className="rounded-full bg-lavender/30 px-2.5 py-1 text-[11px] font-bold text-plum">
                 {dayItems.length} op.
@@ -250,8 +255,8 @@ export function CalendarView() {
             </>
           ) : (
             <p className="text-xs text-graphite/50">
-              Aucune opération ce jour-là. Appui long sur le {selected} avril pour
-              en ajouter une.
+              Aucune opération ce jour-là. Appui long sur le {selected}{" "}
+              {monthName} pour en ajouter une.
             </p>
           )}
         </section>
