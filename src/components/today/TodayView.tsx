@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { EditableAmount } from "@/components/EditableAmount";
+import { currentMonthValue } from "@/components/MonthSelector";
 import { formatDayOfMonth, formatEuro, todayLabel } from "@/lib/format";
 import { ruleTargets, useData } from "@/lib/store";
 
@@ -48,22 +49,47 @@ function SummaryRow({
 }
 
 export function TodayView() {
-  const { charges, variables, income, accounts, categories, settings, updateCharge } =
-    useData();
+  const {
+    charges,
+    variables,
+    income,
+    accounts,
+    categories,
+    settings,
+    chargeState,
+    setChargePaid,
+    setChargeMonthAmount,
+  } = useData();
+
+  // Tout l'écran « Aujourd'hui » est sur le MOIS COURANT.
+  const cm = currentMonthValue();
+  const inMonth = (d: string) => (d ?? "").startsWith(cm);
+  const monthVariables = variables.filter((v) => inMonth(v.date));
 
   // Rappel : dépenses « à trier » (catégorie absente ou nommée « À trier »).
-  const aTrierCount = variables.filter((v) => {
+  const aTrierCount = monthVariables.filter((v) => {
     const c = categories.find((x) => x.id === v.categoryId);
     return !c || c.label.toLowerCase() === "à trier";
   }).length;
 
+  // Charges du mois courant avec leur statut payé / montant réel.
+  const monthCharges = charges.map((c) => ({
+    charge: c,
+    ...chargeState(c.id, cm, c.amount),
+  }));
+  const paidCharges = monthCharges
+    .filter((x) => x.paid)
+    .reduce((s, x) => s + x.amount, 0);
+  const unpaidCharges = monthCharges
+    .filter((x) => !x.paid)
+    .reduce((s, x) => s + x.amount, 0);
+  const variablesSum = monthVariables.reduce((s, v) => s + v.amount, 0);
+
   // « Ce mois-ci » dérivé du magasin (se met à jour avec les saisies/réglages).
   const targets = ruleTargets(settings);
   const month = {
-    income: income.reduce((s, r) => s + r.amount, 0),
-    expenses:
-      charges.reduce((s, c) => s + c.amount, 0) +
-      variables.reduce((s, v) => s + v.amount, 0),
+    income: income.filter((r) => inMonth(r.date)).reduce((s, r) => s + r.amount, 0),
+    expenses: paidCharges + variablesSum,
     savings: accounts.reduce((s, a) => s + a.added, 0),
     incomeTarget: settings.revenuCible,
     expensesBudget: targets.fixes + targets.variables,
@@ -72,20 +98,13 @@ export function TodayView() {
 
   // Charges « du jour » = celles dont l'échéance tombe aujourd'hui (jour du mois).
   const todayDay = new Date().getDate();
-  const dueToday = charges.filter((c) => c.dayOfMonth === todayDay);
+  const dueToday = monthCharges.filter((x) => x.charge.dayOfMonth === todayDay);
   const outflow = dueToday
-    .filter((c) => !c.paid)
-    .reduce((s, c) => s + c.amount, 0);
+    .filter((x) => !x.paid)
+    .reduce((s, x) => s + x.amount, 0);
 
   // Solde dérivé du magasin :
   // disponible = revenus − charges déjà payées − dépenses variables − épargne mise de côté.
-  const paidCharges = charges
-    .filter((c) => c.paid)
-    .reduce((s, c) => s + c.amount, 0);
-  const unpaidCharges = charges
-    .filter((c) => !c.paid)
-    .reduce((s, c) => s + c.amount, 0);
-  const variablesSum = variables.reduce((s, v) => s + v.amount, 0);
   const available = month.income - paidCharges - variablesSum - month.savings;
   // Projection fin de mois = disponible une fois les charges restantes payées.
   const projection = available - unpaidCharges;
@@ -140,7 +159,7 @@ export function TodayView() {
             Rien à payer aujourd&apos;hui ✅
           </p>
         )}
-        {dueToday.map((c) => (
+        {dueToday.map(({ charge: c, paid, amount }) => (
           <div
             key={c.id}
             className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm"
@@ -158,27 +177,25 @@ export function TodayView() {
               </p>
             </div>
             <EditableAmount
-              value={c.amount}
-              onCommit={(n) => updateCharge(c.id, { amount: n })}
+              value={amount}
+              onCommit={(n) => setChargeMonthAmount(c.id, cm, n)}
               ariaLabel={`Montant de ${c.label}`}
               className="shrink-0 font-bold text-graphite"
             />
             <button
               type="button"
-              aria-pressed={c.paid}
+              aria-pressed={paid}
               aria-label={
-                c.paid
+                paid
                   ? `${c.label} payé — annuler`
                   : `Marquer ${c.label} comme payé`
               }
-              onClick={() => updateCharge(c.id, { paid: !c.paid })}
+              onClick={() => setChargePaid(c.id, cm, !paid)}
               className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition active:scale-95 ${
-                c.paid
-                  ? "bg-success/15 text-success"
-                  : "bg-success text-white"
+                paid ? "bg-success/15 text-success" : "bg-success text-white"
               }`}
             >
-              {c.paid ? "✓ Payé" : "Payer"}
+              {paid ? "✓ Payé" : "Payer"}
             </button>
           </div>
         ))}

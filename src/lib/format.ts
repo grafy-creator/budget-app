@@ -76,6 +76,32 @@ export function currentMonthInfo() {
   };
 }
 
+/** Infos sur un mois donné ('YYYY-MM'), pour l'Agenda (mois sélectionnable). */
+export function monthInfoFor(prefix: string) {
+  const [y, mo] = prefix.split("-").map(Number);
+  const year = y;
+  const month = (mo || 1) - 1; // 0–11
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay(); // 0=dim … 6=sam
+  const firstWeekday = firstDow === 0 ? 7 : firstDow; // 1=lun … 7=dim
+  const now = new Date();
+  const isCurrent = now.getFullYear() === year && now.getMonth() === month;
+  return {
+    year,
+    month,
+    daysInMonth,
+    firstWeekday,
+    todayDay: isCurrent ? now.getDate() : 0, // 0 = pas le mois courant
+    prefix,
+    label: cap(
+      new Date(year, month, 1).toLocaleDateString("fr-FR", {
+        month: "long",
+        year: "numeric",
+      }),
+    ),
+  };
+}
+
 /** Échéance récurrente : 1 → "Le 1er du mois", 10 → "Le 10 du mois". */
 export function formatDayOfMonth(n: number): string {
   return n === 1 ? "Le 1er du mois" : `Le ${n} du mois`;

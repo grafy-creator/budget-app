@@ -72,6 +72,15 @@ export type Category = {
   id: string;
   label: string;
   icon: string;
+  budget?: number; // prévu mensuel (enveloppe) — optionnel, 0 si non défini
+};
+
+// Paiement d'une charge fixe pour un mois donné (historique mois par mois).
+export type ChargePayment = {
+  chargeId: string;
+  month: string; // 'YYYY-MM'
+  paid: boolean;
+  amount: number | null; // montant réel ce mois ; null = montant du modèle
 };
 
 // Catégories de dépenses personnalisables (CDC — MUST).

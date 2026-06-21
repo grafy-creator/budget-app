@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { MonthSelector } from "@/components/MonthSelector";
-import { currentMonthInfo, formatEuro } from "@/lib/format";
+import { MonthSelector, currentMonthValue } from "@/components/MonthSelector";
+import { monthInfoFor, formatEuro } from "@/lib/format";
 import { type DotKind } from "@/lib/mock";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
@@ -32,10 +32,11 @@ type DayEntry = {
 };
 
 export function CalendarView() {
-  const { variables, charges, updateCharge } = useData();
+  const { variables, charges, chargeState, setChargePaid } = useData();
   const { openSheet } = useQuickEntry();
 
-  const m = currentMonthInfo();
+  const [monthPrefix, setMonthPrefix] = useState(currentMonthValue());
+  const m = monthInfoFor(monthPrefix);
   const monthName = new Date(m.year, m.month, 1).toLocaleDateString("fr-FR", {
     month: "long",
   });
@@ -94,14 +95,15 @@ export function CalendarView() {
   for (const c of charges) {
     const d = c.dayOfMonth;
     if (d) {
-      const echeance = !c.paid && d === m.todayDay;
+      const st = chargeState(c.id, monthPrefix, c.amount);
+      const echeance = !st.paid && d === m.todayDay; // todayDay=0 hors mois courant
       push(d, {
         id: c.id,
         icon: c.icon,
         label: c.label,
         kind: "fixe",
-        amount: c.amount,
-        paid: c.paid,
+        amount: st.amount,
+        paid: st.paid,
         dot: echeance ? "echeance" : "fixe",
       });
     }
@@ -118,7 +120,13 @@ export function CalendarView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <MonthSelector />
+      <MonthSelector
+        value={monthPrefix}
+        onChange={(ym) => {
+          setMonthPrefix(ym);
+          setSelected(null);
+        }}
+      />
 
       {/* Grille du mois */}
       <section className="rounded-3xl bg-white p-3 shadow-sm">
@@ -228,7 +236,7 @@ export function CalendarView() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => updateCharge(it.id, { paid: true })}
+                          onClick={() => setChargePaid(it.id, monthPrefix, true)}
                           className="rounded-full bg-success px-3 py-1 text-[11px] font-bold text-white transition active:scale-95"
                         >
                           Payer

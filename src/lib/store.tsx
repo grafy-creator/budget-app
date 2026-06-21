@@ -17,6 +17,7 @@ import type {
   SavingsAccount,
   Category,
   IncomeType,
+  ChargePayment,
 } from "./mock";
 
 /**
@@ -57,6 +58,15 @@ type Store = {
   addCharge: (data: Omit<FixedCharge, "id">) => void;
   removeCharge: (id: string) => void;
 
+  // Paiement des charges fixes mois par mois (historique).
+  chargeState: (
+    chargeId: string,
+    month: string,
+    fallbackAmount: number,
+  ) => { paid: boolean; amount: number };
+  setChargePaid: (chargeId: string, month: string, paid: boolean) => void;
+  setChargeMonthAmount: (chargeId: string, month: string, amount: number) => void;
+
   addVariable: (data: Omit<VariableExpense, "id">) => void;
   updateVariable: (id: string, patch: Partial<VariableExpense>) => void;
   removeVariable: (id: string) => void;
@@ -90,12 +100,17 @@ const DataContext = createContext<Store | null>(null);
 /* ------------------------------------------------------------------ */
 const num = (v: unknown) => Number(v ?? 0);
 
+/** Clé locale d'un paiement de charge (charge + mois). */
+const payKey = (chargeId: string, month: string) => `${chargeId}|${month}`;
+type PaymentState = { paid: boolean; amount: number | null };
+
 type Row = Record<string, unknown>;
 
 const fromCategory = (r: Row): Category => ({
   id: r.id as string,
   label: r.label as string,
   icon: r.icon as string,
+  budget: num(r.budget),
 });
 const fromIncomeType = (r: Row): IncomeType => ({
   id: r.id as string,
@@ -194,6 +209,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<SavingsAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [incomeTypes, setIncomeTypes] = useState<IncomeType[]>([]);
+  const [payments, setPayments] = useState<Record<string, PaymentState>>({});
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
@@ -208,13 +224,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       userId.current = user.id;
 
-      const [cat, it, ch, va, inc, acc, set] = await Promise.all([
+      const [cat, it, ch, va, inc, acc, pay, set] = await Promise.all([
         supabase.from("categories").select("*").order("created_at"),
         supabase.from("income_types").select("*").order("created_at"),
         supabase.from("charges").select("*").order("created_at"),
         supabase.from("variables").select("*").order("date", { ascending: false }),
         supabase.from("income").select("*").order("date", { ascending: false }),
         supabase.from("accounts").select("*").order("created_at"),
+        supabase.from("charge_payments").select("*"),
         supabase.from("settings").select("*").maybeSingle(),
       ]);
 
@@ -225,6 +242,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVariables((va.data ?? []).map(fromVariable));
       setIncome((inc.data ?? []).map(fromIncome));
       setAccounts((acc.data ?? []).map(fromAccount));
+      {
+        const map: Record<string, PaymentState> = {};
+        for (const r of (pay.data ?? []) as Row[]) {
+          map[payKey(r.charge_id as string, r.month as string)] = {
+            paid: Boolean(r.paid),
+            amount: r.amount == null ? null : num(r.amount),
+          };
+        }
+        setPayments(map);
+      }
       if (set.data) {
         const sd = set.data as Row;
         setSettings({
@@ -296,6 +323,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
+    // Upsert d'un paiement de charge pour (charge, mois) — clé unique côté base.
+    const upsertPayment = (chargeId: string, month: string, patch: PaymentState) => {
+      const uid = userId.current;
+      if (!uid) return;
+      (
+        supabase as unknown as {
+          from: (t: string) => {
+            upsert: (
+              r: Row,
+              o: { onConflict: string },
+            ) => Promise<{ error: { message: string } | null }>;
+          };
+        }
+      )
+        .from("charge_payments")
+        .upsert(
+          {
+            user_id: uid,
+            charge_id: chargeId,
+            month,
+            paid: patch.paid,
+            amount: patch.amount,
+          },
+          { onConflict: "charge_id,month" },
+        )
+        .then(({ error }) => {
+          if (error) console.error("upsert charge_payments", error.message);
+        });
+    };
+
     const updateSettings = (row: Row) => {
       const uid = userId.current;
       if (!uid) return;
@@ -334,6 +391,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       removeCharge: (id) => {
         setCharges((l) => l.filter((c) => c.id !== id));
         remove("charges", id);
+      },
+
+      // Paiement mois par mois : lecture (avec repli sur le montant du modèle)…
+      chargeState: (chargeId, month, fallbackAmount) => {
+        const p = payments[payKey(chargeId, month)];
+        return {
+          paid: p?.paid ?? false,
+          amount: p?.amount ?? fallbackAmount,
+        };
+      },
+      // …et écriture (mise à jour optimiste + upsert).
+      setChargePaid: (chargeId, month, paid) => {
+        const key = payKey(chargeId, month);
+        const next: PaymentState = {
+          paid,
+          amount: payments[key]?.amount ?? null,
+        };
+        setPayments((m) => ({ ...m, [key]: next }));
+        upsertPayment(chargeId, month, next);
+      },
+      setChargeMonthAmount: (chargeId, month, amount) => {
+        const key = payKey(chargeId, month);
+        const next: PaymentState = {
+          paid: payments[key]?.paid ?? false,
+          amount,
+        };
+        setPayments((m) => ({ ...m, [key]: next }));
+        upsertPayment(chargeId, month, next);
       },
 
       // Dépenses variables
@@ -385,7 +470,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       // Catégories
       addCategory: (data) =>
-        insert("categories", { label: data.label, icon: data.icon }, fromCategory, setCategories),
+        insert(
+          "categories",
+          { label: data.label, icon: data.icon, budget: data.budget ?? 0 },
+          fromCategory,
+          setCategories,
+        ),
       updateCategory: (id, patch) => {
         setCategories((l) => l.map((c) => (c.id === id ? { ...c, ...patch } : c)));
         update("categories", id, patch as Row);
@@ -442,6 +532,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     accounts,
     categories,
     incomeTypes,
+    payments,
     settings,
     supabase,
   ]);

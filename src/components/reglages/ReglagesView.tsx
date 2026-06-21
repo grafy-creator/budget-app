@@ -168,14 +168,20 @@ export function ReglagesView() {
     id: string | null;
     icon: string;
     label: string;
+    budget: string;
   } | null>(null);
 
   function saveCat() {
     if (!catForm || !catForm.label.trim()) return;
+    const budget = parseFloat(catForm.budget.replace(",", ".")) || 0;
     if (catForm.id) {
-      updateCategory(catForm.id, { icon: catForm.icon, label: catForm.label.trim() });
+      updateCategory(catForm.id, {
+        icon: catForm.icon,
+        label: catForm.label.trim(),
+        budget,
+      });
     } else {
-      addCategory({ icon: catForm.icon, label: catForm.label.trim() });
+      addCategory({ icon: catForm.icon, label: catForm.label.trim(), budget });
     }
     setCatForm(null);
   }
@@ -454,7 +460,7 @@ export function ReglagesView() {
           {!catForm && (
             <button
               type="button"
-              onClick={() => setCatForm({ id: null, icon: "🛒", label: "" })}
+              onClick={() => setCatForm({ id: null, icon: "🛒", label: "", budget: "" })}
               className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
             >
               + Ajouter une catégorie
@@ -475,6 +481,23 @@ export function ReglagesView() {
                 aria-label="Nom de la catégorie"
                 className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
               />
+              <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+                <span className="text-xs text-graphite/55">Prévu / mois</span>
+                <input
+                  inputMode="decimal"
+                  value={catForm.budget}
+                  onChange={(e) =>
+                    setCatForm({
+                      ...catForm,
+                      budget: e.target.value.replace(/[^0-9.,]/g, ""),
+                    })
+                  }
+                  placeholder="0"
+                  aria-label="Budget prévu par mois"
+                  className="ml-auto w-20 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+                />
+                <span className="text-sm font-bold text-graphite">€</span>
+              </div>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -504,13 +527,23 @@ export function ReglagesView() {
                 <button
                   type="button"
                   onClick={() =>
-                    setCatForm({ id: c.id, icon: c.icon, label: c.label })
+                    setCatForm({
+                      id: c.id,
+                      icon: c.icon,
+                      label: c.label,
+                      budget: c.budget ? String(c.budget) : "",
+                    })
                   }
                   aria-label={`Modifier ${c.label}`}
                   className="flex items-center gap-1.5 text-sm font-medium text-graphite"
                 >
                   <span aria-hidden>{c.icon}</span>
                   {c.label}
+                  {c.budget ? (
+                    <span className="text-[10px] font-bold text-plum/60">
+                      · {formatEuro(c.budget)}
+                    </span>
+                  ) : null}
                 </button>
                 <button
                   type="button"

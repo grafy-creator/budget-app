@@ -21,6 +21,7 @@ drop table if exists public.charges cascade;
 drop table if exists public.variables cascade;
 drop table if exists public.income cascade;
 drop table if exists public.accounts cascade;
+drop table if exists public.charge_payments cascade;
 drop table if exists public.settings cascade;
 
 drop type if exists transaction_type;
@@ -32,6 +33,7 @@ create table public.categories (
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
   label      text not null,
   icon       text not null default '📦',
+  budget     numeric(10, 2) not null default 0, -- prévu mensuel (enveloppe)
   created_at timestamptz not null default now()
 );
 
@@ -96,6 +98,18 @@ create table public.accounts (
   created_at    timestamptz not null default now()
 );
 
+-- Paiement des charges fixes, mois par mois (historique) -------------
+create table public.charge_payments (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  charge_id  uuid not null references public.charges (id) on delete cascade,
+  month      text not null,                 -- 'YYYY-MM'
+  paid       boolean not null default false,
+  amount     numeric(10, 2),                -- montant réel ce mois ; null = montant du modèle
+  created_at timestamptz not null default now(),
+  unique (charge_id, month)
+);
+
 -- Réglages (1 ligne par utilisatrice) --------------------------------
 create table public.settings (
   user_id      uuid primary key default auth.uid() references auth.users (id) on delete cascade,
@@ -114,6 +128,7 @@ create index charges_user_idx      on public.charges (user_id, created_at);
 create index variables_user_idx    on public.variables (user_id, date desc);
 create index income_user_idx       on public.income (user_id, date desc);
 create index accounts_user_idx     on public.accounts (user_id, created_at);
+create index charge_payments_user_idx on public.charge_payments (user_id, month);
 
 -- ====================================================================
 -- Row Level Security : chacune ne manipule que ses lignes
@@ -124,6 +139,7 @@ alter table public.charges      enable row level security;
 alter table public.variables    enable row level security;
 alter table public.income       enable row level security;
 alter table public.accounts     enable row level security;
+alter table public.charge_payments enable row level security;
 alter table public.settings     enable row level security;
 
 create policy "categories_owner" on public.categories
@@ -137,6 +153,8 @@ create policy "variables_owner" on public.variables
 create policy "income_owner" on public.income
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "accounts_owner" on public.accounts
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "charge_payments_owner" on public.charge_payments
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "settings_owner" on public.settings
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { MonthSelector } from "@/components/MonthSelector";
+import { MonthSelector, currentMonthValue } from "@/components/MonthSelector";
 import { formatEuro } from "@/lib/format";
 import { ruleTargets, useData } from "@/lib/store";
 
@@ -11,11 +12,25 @@ function signedEuro(amount: number) {
 }
 
 export function BilanView() {
-  const { income, charges, variables, accounts, settings } = useData();
+  const { income, charges, variables, accounts, settings, chargeState } =
+    useData();
+  const [month, setMonth] = useState(currentMonthValue());
 
-  const realIncome = Math.round(income.reduce((s, r) => s + r.amount, 0));
-  const realFixed = Math.round(charges.reduce((s, c) => s + c.amount, 0));
-  const realVariable = Math.round(variables.reduce((s, v) => s + v.amount, 0));
+  // Données réelles du mois sélectionné (dépenses & revenus sont datés).
+  const inMonth = (d: string) => (d ?? "").startsWith(month);
+  const realIncome = Math.round(
+    income.filter((r) => inMonth(r.date)).reduce((s, r) => s + r.amount, 0),
+  );
+  // Fixes réelles = charges effectivement payées ce mois (montant réel du mois).
+  const realFixed = Math.round(
+    charges.reduce((s, c) => {
+      const st = chargeState(c.id, month, c.amount);
+      return s + (st.paid ? st.amount : 0);
+    }, 0),
+  );
+  const realVariable = Math.round(
+    variables.filter((v) => inMonth(v.date)).reduce((s, v) => s + v.amount, 0),
+  );
   const realSavings = Math.round(accounts.reduce((s, a) => s + a.added, 0));
 
   // Prévu = revenu cible (revenus) et règle de répartition (Besoins/Envies/Épargne).
@@ -89,7 +104,7 @@ export function BilanView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <MonthSelector prefix="Bilan — " />
+      <MonthSelector value={month} onChange={setMonth} labelPrefix="Bilan — " />
 
       {/* Bandeau de synthèse */}
       <section

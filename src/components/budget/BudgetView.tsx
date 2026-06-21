@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { DayOfMonthPicker } from "@/components/DayOfMonthPicker";
 import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
-import { MonthSelector } from "@/components/MonthSelector";
+import { MonthSelector, currentMonthValue } from "@/components/MonthSelector";
 import {
   formatDateShort,
   formatDayOfMonth,
@@ -100,8 +100,13 @@ export function BudgetView() {
     addVariable,
     updateVariable,
     removeVariable,
+    updateCategory,
+    chargeState,
+    setChargePaid,
+    setChargeMonthAmount,
   } = useData();
   const targets = ruleTargets(settings);
+  const [month, setMonth] = useState(currentMonthValue());
   const [expenseForm, setExpenseForm] = useState<ExpenseForm | null>(null);
   const [chargeForm, setChargeForm] = useState<ChargeForm | null>(null);
   const [depFilter, setDepFilter] = useState<string>("all"); // all | atrier | <categoryId>
@@ -109,22 +114,36 @@ export function BudgetView() {
   const [showAllExpenses, setShowAllExpenses] = useState(false);
   const PREVIEW = 3;
 
+  // Dépenses variables du mois sélectionné (elles sont datées).
+  const monthVariables = variables.filter((v) => (v.date ?? "").startsWith(month));
+
   // Une dépense est « à trier » si sa catégorie est absente ou nommée « À trier ».
   const isATrier = (v: { categoryId?: string }) => {
     const c = categories.find((x) => x.id === v.categoryId);
     return !c || c.label.toLowerCase() === "à trier";
   };
-  const aTrierCount = variables.filter(isATrier).length;
+  const aTrierCount = monthVariables.filter(isATrier).length;
   const filteredVariables =
     depFilter === "all"
-      ? variables
+      ? monthVariables
       : depFilter === "atrier"
-        ? variables.filter(isATrier)
-        : variables.filter((v) => v.categoryId === depFilter);
+        ? monthVariables.filter(isATrier)
+        : monthVariables.filter((v) => v.categoryId === depFilter);
   const visibleCharges = showAllCharges ? charges : charges.slice(0, PREVIEW);
   const visibleExpenses = showAllExpenses
     ? filteredVariables
     : filteredVariables.slice(0, PREVIEW);
+
+  // Dépensé / reste par catégorie ce mois (prévu = budget de la catégorie).
+  const catBreakdown = categories
+    .filter((c) => c.label.toLowerCase() !== "à trier")
+    .map((c) => ({
+      cat: c,
+      prevu: c.budget ?? 0,
+      spent: monthVariables
+        .filter((v) => v.categoryId === c.id)
+        .reduce((s, v) => s + v.amount, 0),
+    }));
 
   function openNewCharge() {
     setChargeForm({
@@ -196,16 +215,20 @@ export function BudgetView() {
     setExpenseForm(null);
   }
 
-  const fixedSpent = charges.reduce((s, c) => s + c.amount, 0);
-  const variableSpent = variables.reduce((s, v) => s + v.amount, 0);
-  const resteAPayer = useMemo(
-    () => charges.filter((c) => !c.paid).reduce((s, c) => s + c.amount, 0),
-    [charges],
-  );
+  // Fixes du mois : payé = déjà dépensé ; non payé = reste à payer (montant réel du mois).
+  const fixedSpent = charges.reduce((s, c) => {
+    const st = chargeState(c.id, month, c.amount);
+    return s + (st.paid ? st.amount : 0);
+  }, 0);
+  const resteAPayer = charges.reduce((s, c) => {
+    const st = chargeState(c.id, month, c.amount);
+    return s + (st.paid ? 0 : st.amount);
+  }, 0);
+  const variableSpent = monthVariables.reduce((s, v) => s + v.amount, 0);
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <MonthSelector />
+      <MonthSelector value={month} onChange={setMonth} />
 
       <div
         role="tablist"
@@ -249,6 +272,61 @@ export function BudgetView() {
             </p>
           </section>
 
+          {/* Prévu par catégorie (enveloppes) — coexiste avec la règle 50/30/20 */}
+          <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
+                Prévu par catégorie
+              </h2>
+              <span className="text-[10px] text-graphite/40">montant = modifiable</span>
+            </div>
+            {catBreakdown.length === 0 && (
+              <p className="text-xs text-graphite/45">
+                Aucun budget par catégorie. Touche un montant « prévu » ci-dessous
+                ou définis-le dans les Réglages.
+              </p>
+            )}
+            {catBreakdown.map(({ cat, prevu, spent }) => {
+              const pct = Math.min(100, Math.round((spent / (prevu || 1)) * 100));
+              const over = prevu > 0 && spent > prevu;
+              return (
+                <div key={cat.id}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium text-graphite/70">
+                      <span aria-hidden>{cat.icon}</span>
+                      <span className="truncate">{cat.label}</span>
+                    </span>
+                    <span
+                      className={`flex shrink-0 items-center gap-1 text-[13px] font-bold ${
+                        over ? "text-error" : "text-graphite"
+                      }`}
+                    >
+                      {formatEuro(spent)}
+                      <span className="text-graphite/35">/</span>
+                      <EditableAmount
+                        value={prevu}
+                        onCommit={(n) => updateCategory(cat.id, { budget: n })}
+                        ariaLabel={`Budget prévu pour ${cat.label}`}
+                        className="font-bold text-graphite/60"
+                      />
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-graphite/10">
+                    <div
+                      className={`h-full rounded-full ${over ? "bg-error" : "bg-violet"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {over && (
+                    <p className="mt-1 text-[11px] font-semibold text-error">
+                      Dépassement de {formatEuro(spent - prevu)}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+
           <section className="flex flex-col gap-2">
             <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
               Charges fixes
@@ -272,19 +350,24 @@ export function BudgetView() {
               />
             )}
 
-            {visibleCharges.map((c) =>
-              chargeForm && chargeForm.id === c.id ? (
-                <ChargeFormPanel
-                  key={c.id}
-                  form={chargeForm}
-                  setForm={setChargeForm}
-                  onSave={saveCharge}
-                />
-              ) : (
+            {visibleCharges.map((c) => {
+              if (chargeForm && chargeForm.id === c.id) {
+                return (
+                  <ChargeFormPanel
+                    key={c.id}
+                    form={chargeForm}
+                    setForm={setChargeForm}
+                    onSave={saveCharge}
+                  />
+                );
+              }
+              // Statut « payé » et montant RÉEL pour le mois sélectionné.
+              const st = chargeState(c.id, month, c.amount);
+              return (
                 <div
                   key={c.id}
                   className={`flex items-center gap-3 rounded-xl p-2.5 shadow-sm ${
-                    c.paid ? "bg-success/5" : "bg-white"
+                    st.paid ? "bg-success/5" : "bg-white"
                   }`}
                 >
                   <button
@@ -309,35 +392,35 @@ export function BudgetView() {
                     </span>
                   </button>
                   <EditableAmount
-                    value={c.amount}
-                    onCommit={(n) => updateCharge(c.id, { amount: n })}
-                    ariaLabel={`Montant de ${c.label}`}
+                    value={st.amount}
+                    onCommit={(n) => setChargeMonthAmount(c.id, month, n)}
+                    ariaLabel={`Montant de ${c.label} ce mois`}
                     className="shrink-0 text-sm font-bold text-graphite"
                   />
                   <button
                     type="button"
-                    aria-pressed={c.paid}
+                    aria-pressed={st.paid}
                     aria-label={
-                      c.paid
+                      st.paid
                         ? `${c.label} payé, marquer comme non payé`
                         : `Marquer ${c.label} comme payé`
                     }
-                    onClick={() => updateCharge(c.id, { paid: !c.paid })}
+                    onClick={() => setChargePaid(c.id, month, !st.paid)}
                     className={`flex size-7 shrink-0 items-center justify-center rounded-[14px] text-sm font-bold transition ${
-                      c.paid
+                      st.paid
                         ? "bg-success text-white"
                         : "bg-graphite/10 text-graphite/40"
                     }`}
                   >
-                    {c.paid ? "✓" : "○"}
+                    {st.paid ? "✓" : "○"}
                   </button>
                   <DeleteButton
                     label={c.label}
                     onClick={() => removeCharge(c.id)}
                   />
                 </div>
-              ),
-            )}
+              );
+            })}
             {charges.length > PREVIEW && (
               <button
                 type="button"
