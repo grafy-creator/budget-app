@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -19,6 +19,18 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Déjà connectée ? → directement dans l'app.
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => {
+        if (data.session) {
+          router.replace("/");
+        }
+      });
+  }, [router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

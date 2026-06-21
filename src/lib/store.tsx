@@ -226,12 +226,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setIncome((inc.data ?? []).map(fromIncome));
       setAccounts((acc.data ?? []).map(fromAccount));
       if (set.data) {
+        const sd = set.data as Row;
         setSettings({
-          revenuCible: num(set.data.revenu_cible),
-          reminder: Boolean(set.data.reminder),
-          pctBesoins: num(set.data.pct_besoins),
-          pctEnvies: num(set.data.pct_envies),
-          pctEpargne: num(set.data.pct_epargne),
+          revenuCible: num(sd.revenu_cible),
+          reminder: Boolean(sd.reminder),
+          pctBesoins: num(sd.pct_besoins),
+          pctEnvies: num(sd.pct_envies),
+          pctEpargne: num(sd.pct_epargne),
         });
       }
       setLoading(false);
@@ -242,6 +243,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, router]);
 
   const value = useMemo<Store>(() => {
+    // Accès dynamique aux tables (nom + payload variables) → typage souple.
+    // La sécurité reste assurée par RLS côté base.
+    const db = supabase as unknown as {
+      from: (table: string) => {
+        insert: (row: Row) => {
+          select: () => { single: () => Promise<{ data: Row | null; error: { message: string } | null }> };
+        };
+        update: (row: Row) => {
+          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+        };
+        delete: () => {
+          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+
     // Insère une ligne et l'ajoute à l'état local depuis la ligne renvoyée.
     const insert = async <T,>(
       table: string,
@@ -250,20 +267,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setter: React.Dispatch<React.SetStateAction<T[]>>,
       prepend = false,
     ) => {
-      const { data, error } = await supabase
-        .from(table)
-        .insert(row)
-        .select()
-        .single();
-      if (error || !data) return;
+      const { data, error } = await db.from(table).insert(row).select().single();
+      if (error || !data) {
+        if (error) console.error(`insert ${table}`, error.message);
+        return;
+      }
       const mapped = from(data);
       setter((l) => (prepend ? [mapped, ...l] : [...l, mapped]));
     };
 
     const update = (table: string, id: string, row: Row) => {
       if (Object.keys(row).length === 0) return;
-      supabase
-        .from(table)
+      db.from(table)
         .update(row)
         .eq("id", id)
         .then(({ error }) => {
@@ -272,8 +287,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
 
     const remove = (table: string, id: string) => {
-      supabase
-        .from(table)
+      db.from(table)
         .delete()
         .eq("id", id)
         .then(({ error }) => {
@@ -284,8 +298,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updateSettings = (row: Row) => {
       const uid = userId.current;
       if (!uid) return;
-      supabase
-        .from("settings")
+      db.from("settings")
         .update(row)
         .eq("user_id", uid)
         .then(({ error }) => {
