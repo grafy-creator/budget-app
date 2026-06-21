@@ -152,16 +152,18 @@ export function ReglagesView() {
 
   const [revenuDraft, setRevenuDraft] = useState(String(settings.revenuCible));
   const [revenuSaved, setRevenuSaved] = useState(false);
-  const revenuDirty =
-    (parseInt(revenuDraft || "0", 10) || 0) !== settings.revenuCible;
+  const parseAmount = (s: string) => parseFloat(s.replace(",", ".")) || 0;
+  const revenuDirty = parseAmount(revenuDraft) !== settings.revenuCible;
 
   function commitRevenu() {
-    setRevenuCible(parseInt(revenuDraft || "0", 10) || 0);
+    setRevenuCible(parseAmount(revenuDraft));
     setRevenuSaved(true);
     window.setTimeout(() => setRevenuSaved(false), 1600);
   }
 
   const [form, setForm] = useState<FormState | null>(null);
+  const [showAllCharges, setShowAllCharges] = useState(false);
+  const CHARGES_PREVIEW = 4;
   const [catForm, setCatForm] = useState<{
     id: string | null;
     icon: string;
@@ -309,10 +311,10 @@ export function ReglagesView() {
             </span>
             <div className="flex flex-1 items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
               <input
-                inputMode="numeric"
+                inputMode="decimal"
                 value={revenuDraft}
                 onChange={(e) =>
-                  setRevenuDraft(e.target.value.replace(/[^0-9]/g, ""))
+                  setRevenuDraft(e.target.value.replace(/[^0-9.,]/g, ""))
                 }
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -390,7 +392,7 @@ export function ReglagesView() {
           {/* Formulaire d'ajout (en haut) */}
           {form && form.id === null && renderChargeForm()}
 
-          {charges.map((c) =>
+          {(showAllCharges ? charges : charges.slice(0, CHARGES_PREVIEW)).map((c) =>
             form && form.id === c.id ? (
               <div key={c.id}>{renderChargeForm()}</div>
             ) : (
@@ -430,6 +432,17 @@ export function ReglagesView() {
             <p className="py-2 text-center text-xs text-graphite/40">
               Aucune charge récurrente.
             </p>
+          )}
+          {charges.length > CHARGES_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setShowAllCharges((v) => !v)}
+              className="self-center text-xs font-semibold text-plum"
+            >
+              {showAllCharges
+                ? "Voir moins"
+                : `Voir plus (${charges.length - CHARGES_PREVIEW})`}
+            </button>
           )}
         </div>
       </section>

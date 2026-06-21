@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DayOfMonthPicker } from "@/components/DayOfMonthPicker";
 import { todayISO } from "@/lib/format";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
@@ -9,6 +10,7 @@ const TYPES = [
   { id: "depense", icon: "💸", label: "Dépense" },
   { id: "revenu", icon: "💰", label: "Revenu" },
   { id: "epargne", icon: "🐷", label: "Épargne" },
+  { id: "charge", icon: "🏠", label: "Charge fixe" },
 ] as const;
 
 type TypeId = (typeof TYPES)[number]["id"];
@@ -25,6 +27,7 @@ export function QuickEntry() {
     addContribution,
     addCategory,
     addAccount,
+    addCharge,
   } = useData();
 
   const { open, initialDate, openSheet, closeSheet } = useQuickEntry();
@@ -33,6 +36,7 @@ export function QuickEntry() {
   const [category, setCategory] = useState<string | null>(null);
   const [typeId, setTypeId] = useState<string>("");
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [chargeDay, setChargeDay] = useState(1); // jour d'échéance (charge fixe)
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState("");
   const [newCat, setNewCat] = useState<string | null>(null); // saisie nouvelle catégorie
@@ -96,6 +100,7 @@ export function QuickEntry() {
     setCategory(null);
     setTypeId("");
     setAccountId(null);
+    setChargeDay(1);
     setDate(todayISO());
     setNote("");
     setNewCat(null);
@@ -185,6 +190,14 @@ export function QuickEntry() {
     } else if (type === "epargne") {
       const accId = await resolveAccountId();
       if (accId) addContribution(accId, amountValue);
+    } else if (type === "charge") {
+      addCharge({
+        label: note.trim() || "Charge fixe",
+        icon: "🏠",
+        dayOfMonth: chargeDay,
+        amount: amountValue,
+        paid: false,
+      });
     }
 
     setDone(true);
@@ -264,7 +277,7 @@ export function QuickEntry() {
             </h2>
 
             {/* Type */}
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2">
               {TYPES.map((t) => {
                 const active = type === t.id;
                 return (
@@ -308,25 +321,31 @@ export function QuickEntry() {
               </span>
             </div>
 
-            {/* Date + note (tous types) */}
+            {/* Date (dépense/revenu/épargne) OU jour d'échéance (charge fixe) + note */}
             <div className="mt-3 flex flex-col gap-2">
-              <label className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2.5">
-                <span className="text-xs font-semibold text-graphite/50">📅 Date</span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  aria-label="Date"
-                  className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none [color-scheme:light]"
-                />
-              </label>
+              {type === "charge" ? (
+                <DayOfMonthPicker value={chargeDay} onChange={setChargeDay} />
+              ) : (
+                <label className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2.5">
+                  <span className="text-xs font-semibold text-graphite/50">📅 Date</span>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    aria-label="Date"
+                    className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none [color-scheme:light]"
+                  />
+                </label>
+              )}
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={
                   type === "revenu"
                     ? "Note / client (ex : Studio Rin)"
-                    : "Note (optionnel)"
+                    : type === "charge"
+                      ? "Nom (ex : Assurance, Loyer)"
+                      : "Note (optionnel)"
                 }
                 aria-label="Note"
                 className="rounded-xl bg-graphite/5 px-3 py-2.5 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
