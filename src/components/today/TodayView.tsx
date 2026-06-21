@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { EditableAmount } from "@/components/EditableAmount";
 import { formatDayOfMonth, formatEuro, todayLabel } from "@/lib/format";
 import { ruleTargets, useData } from "@/lib/store";
@@ -47,8 +48,14 @@ function SummaryRow({
 }
 
 export function TodayView() {
-  const { charges, variables, income, accounts, settings, updateCharge } =
+  const { charges, variables, income, accounts, categories, settings, updateCharge } =
     useData();
+
+  // Rappel : dépenses « à trier » (catégorie absente ou nommée « À trier »).
+  const aTrierCount = variables.filter((v) => {
+    const c = categories.find((x) => x.id === v.categoryId);
+    return !c || c.label.toLowerCase() === "à trier";
+  }).length;
 
   // « Ce mois-ci » dérivé du magasin (se met à jour avec les saisies/réglages).
   const targets = ruleTargets(settings);
@@ -110,11 +117,29 @@ export function TodayView() {
         </div>
       </section>
 
+      {/* Rappel : dépenses à trier */}
+      {aTrierCount > 0 && (
+        <Link
+          href="/budget"
+          className="flex items-center gap-2 rounded-xl bg-warning/10 px-3.5 py-2.5 text-xs font-semibold text-warning transition active:scale-[0.99]"
+        >
+          🗂️ {aTrierCount} dépense{aTrierCount > 1 ? "s" : ""} à trier — ranger
+          <span className="ml-auto" aria-hidden>
+            →
+          </span>
+        </Link>
+      )}
+
       {/* Ce qui se passe aujourd'hui */}
       <section aria-labelledby="today-title" className="flex flex-col gap-3">
         <h2 id="today-title" className="text-[13px] font-semibold text-graphite/55">
           📅 Ce qui se passe aujourd&apos;hui
         </h2>
+        {dueToday.length === 0 && (
+          <p className="rounded-2xl bg-white px-4 py-3 text-sm text-graphite/55 shadow-sm">
+            Rien à payer aujourd&apos;hui ✅
+          </p>
+        )}
         {dueToday.map((c) => (
           <div
             key={c.id}

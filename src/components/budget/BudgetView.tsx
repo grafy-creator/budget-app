@@ -64,6 +64,29 @@ function SummaryBar({
   );
 }
 
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+        active ? "bg-plum text-white" : "bg-graphite/5 text-graphite/60"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function BudgetView() {
   const [tab, setTab] = useState<Tab>("Dépenses");
   const {
@@ -81,6 +104,27 @@ export function BudgetView() {
   const targets = ruleTargets(settings);
   const [expenseForm, setExpenseForm] = useState<ExpenseForm | null>(null);
   const [chargeForm, setChargeForm] = useState<ChargeForm | null>(null);
+  const [depFilter, setDepFilter] = useState<string>("all"); // all | atrier | <categoryId>
+  const [showAllCharges, setShowAllCharges] = useState(false);
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
+  const PREVIEW = 3;
+
+  // Une dépense est « à trier » si sa catégorie est absente ou nommée « À trier ».
+  const isATrier = (v: { categoryId?: string }) => {
+    const c = categories.find((x) => x.id === v.categoryId);
+    return !c || c.label.toLowerCase() === "à trier";
+  };
+  const aTrierCount = variables.filter(isATrier).length;
+  const filteredVariables =
+    depFilter === "all"
+      ? variables
+      : depFilter === "atrier"
+        ? variables.filter(isATrier)
+        : variables.filter((v) => v.categoryId === depFilter);
+  const visibleCharges = showAllCharges ? charges : charges.slice(0, PREVIEW);
+  const visibleExpenses = showAllExpenses
+    ? filteredVariables
+    : filteredVariables.slice(0, PREVIEW);
 
   function openNewCharge() {
     setChargeForm({
@@ -228,7 +272,7 @@ export function BudgetView() {
               />
             )}
 
-            {charges.map((c) =>
+            {visibleCharges.map((c) =>
               chargeForm && chargeForm.id === c.id ? (
                 <ChargeFormPanel
                   key={c.id}
@@ -294,12 +338,47 @@ export function BudgetView() {
                 </div>
               ),
             )}
+            {charges.length > PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllCharges((v) => !v)}
+                className="self-center text-xs font-semibold text-plum"
+              >
+                {showAllCharges
+                  ? "Voir moins"
+                  : `Voir plus (${charges.length - PREVIEW})`}
+              </button>
+            )}
           </section>
 
           <section className="flex flex-col gap-2">
             <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
               Dépenses variables
             </h2>
+
+            {/* Filtre */}
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+              <FilterChip
+                label="Toutes"
+                active={depFilter === "all"}
+                onClick={() => setDepFilter("all")}
+              />
+              <FilterChip
+                label={`🗂️ À trier${aTrierCount ? ` (${aTrierCount})` : ""}`}
+                active={depFilter === "atrier"}
+                onClick={() => setDepFilter("atrier")}
+              />
+              {categories
+                .filter((c) => c.label.toLowerCase() !== "à trier")
+                .map((c) => (
+                  <FilterChip
+                    key={c.id}
+                    label={`${c.icon} ${c.label}`}
+                    active={depFilter === c.id}
+                    onClick={() => setDepFilter(c.id)}
+                  />
+                ))}
+            </div>
 
             {!expenseForm && (
               <button
@@ -320,7 +399,7 @@ export function BudgetView() {
               />
             )}
 
-            {variables.map((e) =>
+            {visibleExpenses.map((e) =>
               expenseForm && expenseForm.id === e.id ? (
                 <ExpenseFormPanel
                   key={e.id}
@@ -369,10 +448,23 @@ export function BudgetView() {
                 </div>
               ),
             )}
-            {variables.length === 0 && !expenseForm && (
+            {filteredVariables.length === 0 && !expenseForm && (
               <p className="py-2 text-center text-xs text-graphite/40">
-                Aucune dépense variable. Ajoute-en une avec le bouton ci-dessus.
+                {depFilter === "all"
+                  ? "Aucune dépense variable. Ajoute-en une avec le bouton ci-dessus."
+                  : "Aucune dépense dans ce filtre."}
               </p>
+            )}
+            {filteredVariables.length > PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllExpenses((v) => !v)}
+                className="self-center text-xs font-semibold text-plum"
+              >
+                {showAllExpenses
+                  ? "Voir moins"
+                  : `Voir plus (${filteredVariables.length - PREVIEW})`}
+              </button>
             )}
           </section>
         </>

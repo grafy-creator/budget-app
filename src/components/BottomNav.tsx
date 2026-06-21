@@ -24,9 +24,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="absolute inset-x-0 bottom-0 z-20 border-t border-black/5 bg-white/95 backdrop-blur"
+      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[440px] -translate-x-1/2 border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
-      <ul className="mx-auto grid max-w-[440px] grid-cols-6">
+      <ul className="grid grid-cols-6">
         {ITEMS.map((item) => {
           const active =
             item.href === "/"

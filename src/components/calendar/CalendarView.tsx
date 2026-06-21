@@ -10,9 +10,9 @@ import { useQuickEntry } from "@/lib/quickEntry";
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
 const DOT_CLASS: Record<DotKind, string> = {
-  fixe: "bg-plum",
-  variable: "bg-violet",
-  echeance: "bg-warning",
+  fixe: "bg-plum", // charge fixe — violet foncé
+  variable: "bg-success", // dépense variable — vert (bien distinct du violet)
+  echeance: "bg-warning", // échéance du jour — ambre
 };
 
 const LEGEND: { kind: DotKind; label: string }[] = [
@@ -181,21 +181,6 @@ export function CalendarView() {
         👆 Touche un jour pour le voir · appui long pour y ajouter
       </p>
 
-      {/* Légende */}
-      <section>
-        <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-graphite/50">
-          Légende
-        </h2>
-        <ul className="flex flex-col gap-1.5">
-          {LEGEND.map((l) => (
-            <li key={l.kind} className="flex items-center gap-2">
-              <span className={`size-2 rounded-sm ${DOT_CLASS[l.kind]}`} />
-              <span className="text-xs text-graphite/60">{l.label}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
       {/* Panneau du jour sélectionné */}
       {selected && (
         <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
@@ -261,6 +246,21 @@ export function CalendarView() {
           )}
         </section>
       )}
+
+      {/* Légende (en bas) */}
+      <section>
+        <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wide text-graphite/50">
+          Légende
+        </h2>
+        <ul className="flex flex-col gap-1.5">
+          {LEGEND.map((l) => (
+            <li key={l.kind} className="flex items-center gap-2">
+              <span className={`size-2 rounded-sm ${DOT_CLASS[l.kind]}`} />
+              <span className="text-xs text-graphite/60">{l.label}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

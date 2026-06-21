@@ -38,6 +38,8 @@ export function QuickEntry() {
   const [newCat, setNewCat] = useState<string | null>(null); // saisie nouvelle catégorie
   const [newAcc, setNewAcc] = useState<string | null>(null); // saisie nouveau compte
   const [done, setDone] = useState(false);
+  const [dragY, setDragY] = useState(0); // glissement vers le bas (swipe to close)
+  const dragStart = useRef<number | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
   const amountValue = parseFloat(amount.replace(",", "."));
@@ -60,6 +62,26 @@ export function QuickEntry() {
       return () => clearTimeout(t);
     }
   }, [open, initialDate]);
+
+  // Réinitialise le glissement à la fermeture.
+  useEffect(() => {
+    if (!open) setDragY(0);
+  }, [open]);
+
+  function onDragStart(y: number) {
+    dragStart.current = y;
+  }
+  function onDragMove(y: number) {
+    if (dragStart.current != null) {
+      const d = y - dragStart.current;
+      if (d > 0) setDragY(d);
+    }
+  }
+  function onDragEnd() {
+    dragStart.current = null;
+    if (dragY > 100) closeSheet();
+    else setDragY(0);
+  }
 
   // Pré-sélectionne la 1ère nature de revenu (toujours au moins une).
   useEffect(() => {
@@ -174,23 +196,27 @@ export function QuickEntry() {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Ajouter une transaction"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => openSheet()}
-        className="absolute bottom-[88px] right-5 z-30 flex size-14 items-center justify-center rounded-full bg-plum text-3xl font-bold leading-none text-white shadow-lg shadow-plum/30 transition active:scale-95"
-      >
-        <span className="-mt-1" aria-hidden>
-          +
-        </span>
-      </button>
+      {/* Conteneur fixe centré sur la colonne (440px) pour ancrer le FAB au
+          bas de l'écran du téléphone, au-dessus de la nav, sans bouger au scroll. */}
+      <div className="pointer-events-none fixed bottom-0 left-1/2 z-30 h-0 w-full max-w-[440px] -translate-x-1/2">
+        <button
+          type="button"
+          aria-label="Ajouter une transaction"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => openSheet()}
+          className="pointer-events-auto absolute right-5 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] flex size-14 items-center justify-center rounded-full bg-plum text-3xl font-bold leading-none text-white shadow-lg shadow-plum/30 transition active:scale-95"
+        >
+          <span className="-mt-1" aria-hidden>
+            +
+          </span>
+        </button>
+      </div>
 
       <div
         onClick={closeSheet}
         aria-hidden
-        className={`absolute inset-0 z-40 bg-graphite/40 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-40 bg-graphite/40 transition-opacity duration-200 ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
@@ -199,11 +225,30 @@ export function QuickEntry() {
         role="dialog"
         aria-modal="true"
         aria-label="Saisie rapide d'une transaction"
-        className={`absolute inset-x-0 bottom-0 z-50 max-h-[90%] overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl transition-transform duration-300 ease-out ${
-          open ? "translate-y-0" : "pointer-events-none translate-y-full"
-        }`}
+        style={dragY ? { transform: `translate(-50%, ${dragY}px)` } : undefined}
+        className={`fixed bottom-0 left-1/2 z-50 max-h-[90%] w-full max-w-[440px] -translate-x-1/2 overflow-y-auto rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ${
+          dragY ? "" : "transition-transform duration-300 ease-out"
+        } ${open ? "translate-y-0" : "pointer-events-none translate-y-full"}`}
       >
-        <div className="mx-auto mb-3 h-1 w-14 rounded-full bg-graphite/15" />
+        {/* Poignée : glisser vers le bas pour fermer */}
+        <div
+          onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
+          onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
+          onTouchEnd={onDragEnd}
+          className="-mt-2 mb-1 flex cursor-grab justify-center py-2 active:cursor-grabbing"
+        >
+          <div className="h-1 w-14 rounded-full bg-graphite/20" />
+        </div>
+
+        {/* Croix de fermeture */}
+        <button
+          type="button"
+          onClick={closeSheet}
+          aria-label="Fermer"
+          className="absolute right-4 top-3 flex size-8 items-center justify-center rounded-full bg-graphite/5 text-graphite/50 transition active:scale-90"
+        >
+          ✕
+        </button>
 
         {done ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
