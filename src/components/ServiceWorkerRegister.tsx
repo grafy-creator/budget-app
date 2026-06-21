@@ -3,22 +3,24 @@
 import { useEffect } from "react";
 
 /**
- * Enregistre le service worker (/sw.js) côté client après le chargement.
- * Inactif en développement pour éviter les soucis de cache pendant le dev.
+ * Service worker DÉSACTIVÉ pour l'instant : l'ancien interceptait aussi les
+ * appels à Supabase (cache hors-ligne trop large), ce qui bloquait les
+ * enregistrements (ERR_INTERNET_DISCONNECTED). On désinscrit tout SW existant
+ * et on vide ses caches. Un cache hors-ligne propre (même origine uniquement)
+ * pourra être réintroduit plus tard.
  */
 export function ServiceWorkerRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
-    if (!("serviceWorker" in navigator)) return;
-
-    const onLoad = () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
-        // Échec silencieux : l'app reste fonctionnelle sans offline.
-      });
-    };
-
-    window.addEventListener("load", onLoad);
-    return () => window.removeEventListener("load", onLoad);
+    if (typeof navigator === "undefined") return;
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => regs.forEach((r) => r.unregister()))
+        .catch(() => {});
+    }
+    if (typeof caches !== "undefined") {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
+    }
   }, []);
 
   return null;
