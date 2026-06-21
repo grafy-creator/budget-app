@@ -58,6 +58,13 @@ export function QuickEntry() {
     }
   }, [open, initialDate]);
 
+  // Pré-sélectionne la 1ère catégorie pour une dépense.
+  useEffect(() => {
+    if (type === "depense" && !category && categories[0]) {
+      setCategory(categories[0].id);
+    }
+  }, [type, category, categories]);
+
   // Pré-sélectionne la 1ère nature de revenu.
   useEffect(() => {
     if (type === "revenu" && !typeId && incomeTypes[0]) {

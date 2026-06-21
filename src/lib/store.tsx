@@ -298,11 +298,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updateSettings = (row: Row) => {
       const uid = userId.current;
       if (!uid) return;
-      db.from("settings")
-        .update(row)
-        .eq("user_id", uid)
+      // upsert : crée la ligne si elle n'existe pas, sinon la met à jour.
+      (
+        supabase as unknown as {
+          from: (t: string) => {
+            upsert: (r: Row) => Promise<{ error: { message: string } | null }>;
+          };
+        }
+      )
+        .from("settings")
+        .upsert({ user_id: uid, ...row })
         .then(({ error }) => {
-          if (error) console.error("update settings", error.message);
+          if (error) console.error("upsert settings", error.message);
         });
     };
 
