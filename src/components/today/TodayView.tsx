@@ -4,6 +4,7 @@ import Link from "next/link";
 import { EditableAmount } from "@/components/EditableAmount";
 import { currentMonthValue } from "@/components/MonthSelector";
 import { formatDayOfMonth, formatEuro, todayLabel } from "@/lib/format";
+import { useAssistant } from "@/lib/assistantUi";
 import { ruleTargets, useData } from "@/lib/store";
 
 function SummaryRow({
@@ -60,6 +61,7 @@ export function TodayView() {
     setChargePaid,
     setChargeMonthAmount,
   } = useData();
+  const { open: openAssistant } = useAssistant();
 
   // Tout l'écran « Aujourd'hui » est sur le MOIS COURANT.
   const cm = currentMonthValue();
@@ -111,9 +113,19 @@ export function TodayView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <header>
-        <p className="text-[13px] font-medium text-graphite/55">Bonjour 👋</p>
-        <h1 className="text-xl font-bold text-graphite">{todayLabel()}</h1>
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-graphite/55">Bonjour 👋</p>
+          <h1 className="text-xl font-bold text-graphite">{todayLabel()}</h1>
+        </div>
+        <button
+          type="button"
+          onClick={openAssistant}
+          aria-label="Ouvrir l'assistant"
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-lavender/30 px-3 py-2 text-xs font-bold text-plum transition active:scale-95"
+        >
+          <span aria-hidden>✨</span> Assistant
+        </button>
       </header>
 
       {/* Carte solde */}

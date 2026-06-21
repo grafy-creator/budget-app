@@ -3,6 +3,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { QuickEntry } from "@/components/QuickEntry";
 import { DataProvider } from "@/lib/store";
 import { QuickEntryProvider } from "@/lib/quickEntry";
+import { AssistantProvider } from "@/lib/assistantUi";
 
 /**
  * Coquille des onglets de l'app (Aujourd'hui, Budget, Épargne, Bilan, Réglages).
@@ -21,11 +22,13 @@ export default function TabsLayout({
       <div className="relative mx-auto min-h-dvh w-full max-w-[440px] bg-background shadow-sm">
         <DataProvider>
           <QuickEntryProvider>
-            <main className="min-w-0 px-5 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] pt-12">
-              {children}
-            </main>
-            <QuickEntry />
-            <AssistantOverlay />
+            <AssistantProvider>
+              <main className="min-w-0 px-5 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] pt-12">
+                {children}
+              </main>
+              <QuickEntry />
+              <AssistantOverlay />
+            </AssistantProvider>
           </QuickEntryProvider>
         </DataProvider>
         <BottomNav />

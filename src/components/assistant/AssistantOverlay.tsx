@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import { EditableAmount } from "@/components/EditableAmount";
 import { currentMonthValue } from "@/components/MonthSelector";
 import { formatEuro } from "@/lib/format";
-import {
-  isAssistantEnabled,
-  isMonthReviewed,
-  markMonthReviewed,
-} from "@/lib/assistant";
+import { isMonthReviewed, markMonthReviewed } from "@/lib/assistant";
+import { useAssistant } from "@/lib/assistantUi";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
 
@@ -20,6 +17,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 export function AssistantOverlay() {
   const router = useRouter();
   const { openSheet } = useQuickEntry();
+  const { visible, close } = useAssistant();
   const {
     income,
     charges,
@@ -31,21 +29,32 @@ export function AssistantOverlay() {
     addIncome,
     updateIncome,
     removeIncome,
+    addCategory,
     updateCategory,
     chargeState,
     setChargeMonthAmount,
   } = useData();
 
   const cm = currentMonthValue();
-  const [visible, setVisible] = useState(false);
   const [screen, setScreen] = useState<Screen>("home");
   const [step, setStep] = useState(1);
   const [reviewed, setReviewed] = useState(true);
+  const [newCat, setNewCat] = useState<{ label: string; amount: string } | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (isAssistantEnabled()) setVisible(true);
     setReviewed(isMonthReviewed(cm));
   }, [cm]);
+
+  // À chaque réouverture, repartir de l'écran d'accueil.
+  useEffect(() => {
+    if (visible) {
+      setScreen("home");
+      setStep(1);
+      setNewCat(null);
+    }
+  }, [visible]);
 
   if (!visible) return null;
 
@@ -80,11 +89,11 @@ export function AssistantOverlay() {
   function skip() {
     setScreen("home");
     setStep(1);
-    setVisible(false);
+    close();
   }
   function chooseAdd(type: "depense" | "charge" | "revenu") {
     openSheet(undefined, type);
-    setVisible(false);
+    close();
   }
   function reprendreRevenus() {
     for (const r of lastMonthIncome) {
@@ -98,12 +107,18 @@ export function AssistantOverlay() {
       });
     }
   }
+  function createCat() {
+    if (!newCat || !newCat.label.trim()) return;
+    const budget = parseFloat(newCat.amount.replace(",", ".")) || 0;
+    addCategory({ label: newCat.label.trim(), icon: "🏷️", budget });
+    setNewCat(null);
+  }
   function finishMonth() {
     markMonthReviewed(cm);
     setReviewed(true);
     setScreen("home");
     setStep(1);
-    setVisible(false);
+    close();
     router.push("/");
   }
 
@@ -210,7 +225,7 @@ export function AssistantOverlay() {
               <button
                 type="button"
                 onClick={() => {
-                  setVisible(false);
+                  close();
                   router.push("/");
                 }}
                 className="rounded-2xl bg-plum py-3.5 text-[15px] font-bold text-white shadow-md shadow-plum/20 transition active:scale-[0.99]"
@@ -391,6 +406,63 @@ export function AssistantOverlay() {
                       </div>
                     ))}
                 </div>
+
+                {newCat === null ? (
+                  <button
+                    type="button"
+                    onClick={() => setNewCat({ label: "", amount: "" })}
+                    className="mt-3 rounded-xl border border-dashed border-plum/30 py-3 text-[13px] font-semibold text-plum"
+                  >
+                    + Ajouter une catégorie
+                  </button>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-2 rounded-xl bg-cloud p-3">
+                    <input
+                      autoFocus
+                      value={newCat.label}
+                      onChange={(e) =>
+                        setNewCat({ ...newCat, label: e.target.value })
+                      }
+                      placeholder="Nom (ex : Shopping)"
+                      aria-label="Nom de la catégorie"
+                      className="rounded-lg bg-white px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+                    />
+                    <div className="flex items-center gap-1 rounded-lg bg-white px-3 py-2">
+                      <span className="text-xs text-graphite/55">Prévu / mois</span>
+                      <input
+                        inputMode="decimal"
+                        value={newCat.amount}
+                        onChange={(e) =>
+                          setNewCat({
+                            ...newCat,
+                            amount: e.target.value.replace(/[^0-9.,]/g, ""),
+                          })
+                        }
+                        placeholder="0"
+                        aria-label="Budget prévu par mois"
+                        className="ml-auto w-20 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+                      />
+                      <span className="text-sm font-bold text-graphite">€</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewCat(null)}
+                        className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        onClick={createCat}
+                        disabled={!newCat.label.trim()}
+                        className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
+                      >
+                        Créer
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
