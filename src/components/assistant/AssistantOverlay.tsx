@@ -10,7 +10,7 @@ import { useAssistant } from "@/lib/assistantUi";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
 
-type Screen = "home" | "add" | "consult" | "month";
+type Screen = "home" | "add" | "consult" | "month" | "todo";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -31,7 +31,9 @@ export function AssistantOverlay() {
     removeIncome,
     addCategory,
     updateCategory,
+    updateVariable,
     chargeState,
+    setChargePaid,
     setChargeMonthAmount,
   } = useData();
 
@@ -42,6 +44,7 @@ export function AssistantOverlay() {
   const [newCat, setNewCat] = useState<{ label: string; amount: string } | null>(
     null,
   );
+  const [rangeFor, setRangeFor] = useState<string | null>(null); // dépense en cours de rangement
 
   useEffect(() => {
     setReviewed(isMonthReviewed(cm));
@@ -53,6 +56,7 @@ export function AssistantOverlay() {
       setScreen("home");
       setStep(1);
       setNewCat(null);
+      setRangeFor(null);
     }
   }, [visible]);
 
@@ -81,6 +85,16 @@ export function AssistantOverlay() {
   const prev = new Date(yy, mm - 2, 1);
   const pm = `${prev.getFullYear()}-${pad2(prev.getMonth() + 1)}`;
   const lastMonthIncome = income.filter((r) => (r.date ?? "").startsWith(pm));
+
+  // « À traiter » : charges non payées (ce mois) + dépenses non rangées (ce mois).
+  const realCats = categories.filter((c) => c.label.toLowerCase() !== "à trier");
+  const isATrier = (v: { categoryId?: string }) => {
+    const c = categories.find((x) => x.id === v.categoryId);
+    return !c || c.label.toLowerCase() === "à trier";
+  };
+  const toPay = charges.filter((c) => !chargeState(c.id, cm, c.amount).paid);
+  const toSort = variables.filter((v) => inMonth(v.date) && isATrier(v));
+  const pendingCount = toPay.length + toSort.length;
 
   const typeLabel = (id: string) =>
     incomeTypes.find((t) => t.id === id)?.label ?? "Revenu";
@@ -156,6 +170,16 @@ export function AssistantOverlay() {
                 onClick={() => {
                   setStep(1);
                   setScreen("month");
+                }}
+              />
+              <AssistantCard
+                icon="🧹"
+                title="À traiter"
+                subtitle="Charges à payer, dépenses à ranger"
+                badge={pendingCount > 0 ? String(pendingCount) : undefined}
+                onClick={() => {
+                  setRangeFor(null);
+                  setScreen("todo");
                 }}
               />
             </div>
@@ -240,6 +264,131 @@ export function AssistantOverlay() {
                 Retour
               </button>
             </div>
+          </div>
+        )}
+
+        {screen === "todo" && (
+          <div className="flex flex-1 flex-col">
+            <BackButton onClick={() => setScreen("home")} />
+            <h1 className="mb-1 font-display text-2xl font-extrabold text-graphite">
+              À traiter
+            </h1>
+            <p className="mb-5 text-xs text-graphite/55">
+              Tout ce qui reste en attente ce mois, au même endroit.
+            </p>
+
+            {pendingCount === 0 && (
+              <div className="rounded-2xl bg-success/10 p-5 text-center">
+                <p className="text-2xl" aria-hidden>
+                  ✅
+                </p>
+                <p className="mt-1 text-sm font-semibold text-success">
+                  Tout est à jour&nbsp;!
+                </p>
+              </div>
+            )}
+
+            {toPay.length > 0 && (
+              <section className="mb-4 flex flex-col gap-2">
+                <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
+                  Charges à payer ({toPay.length})
+                </h2>
+                {toPay.map((c) => {
+                  const st = chargeState(c.id, cm, c.amount);
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+                    >
+                      <span className="text-xl" aria-hidden>
+                        {c.icon}
+                      </span>
+                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+                        {c.label}
+                      </p>
+                      <span className="shrink-0 text-sm font-bold text-graphite">
+                        {formatEuro(st.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setChargePaid(c.id, cm, true)}
+                        className="shrink-0 rounded-full bg-success px-3 py-1.5 text-xs font-bold text-white transition active:scale-95"
+                      >
+                        Payer
+                      </button>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+
+            {toSort.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
+                  Dépenses à ranger ({toSort.length})
+                </h2>
+                {toSort.map((v) => (
+                  <div
+                    key={v.id}
+                    className="flex flex-col gap-2 rounded-xl bg-white p-2.5 shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl" aria-hidden>
+                        {v.icon}
+                      </span>
+                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+                        {v.label}
+                      </p>
+                      <span className="shrink-0 text-sm font-bold text-violet">
+                        {formatEuro(v.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRangeFor(rangeFor === v.id ? null : v.id)
+                        }
+                        className="shrink-0 rounded-full bg-lavender/40 px-3 py-1.5 text-xs font-bold text-plum transition active:scale-95"
+                      >
+                        Ranger
+                      </button>
+                    </div>
+                    {rangeFor === v.id && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {realCats.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              updateVariable(v.id, {
+                                categoryId: cat.id,
+                                icon: cat.icon,
+                              });
+                              setRangeFor(null);
+                            }}
+                            className="flex items-center gap-1 rounded-full bg-graphite/5 px-3 py-1.5 text-xs font-semibold text-graphite/70 transition active:scale-95"
+                          >
+                            <span aria-hidden>{cat.icon}</span> {cat.label}
+                          </button>
+                        ))}
+                        {realCats.length === 0 && (
+                          <p className="text-[11px] text-graphite/45">
+                            Crée d&apos;abord une catégorie dans les Réglages.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setScreen("home")}
+              className="mt-6 self-center rounded-full px-6 py-3 text-sm font-semibold text-graphite/55"
+            >
+              Retour
+            </button>
           </div>
         )}
 
