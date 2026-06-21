@@ -1,3 +1,4 @@
+import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
 import { BottomNav } from "@/components/BottomNav";
 import { QuickEntry } from "@/components/QuickEntry";
 import { DataProvider } from "@/lib/store";
@@ -24,6 +25,7 @@ export default function TabsLayout({
               {children}
             </main>
             <QuickEntry />
+            <AssistantOverlay />
           </QuickEntryProvider>
         </DataProvider>
         <BottomNav />

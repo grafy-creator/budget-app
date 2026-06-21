@@ -1,0 +1,505 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { EditableAmount } from "@/components/EditableAmount";
+import { currentMonthValue } from "@/components/MonthSelector";
+import { formatEuro } from "@/lib/format";
+import {
+  isAssistantEnabled,
+  isMonthReviewed,
+  markMonthReviewed,
+} from "@/lib/assistant";
+import { useData } from "@/lib/store";
+import { useQuickEntry } from "@/lib/quickEntry";
+
+type Screen = "home" | "add" | "consult" | "month";
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+export function AssistantOverlay() {
+  const router = useRouter();
+  const { openSheet } = useQuickEntry();
+  const {
+    income,
+    charges,
+    variables,
+    accounts,
+    settings,
+    categories,
+    incomeTypes,
+    addIncome,
+    updateIncome,
+    removeIncome,
+    updateCategory,
+    chargeState,
+    setChargeMonthAmount,
+  } = useData();
+
+  const cm = currentMonthValue();
+  const [visible, setVisible] = useState(false);
+  const [screen, setScreen] = useState<Screen>("home");
+  const [step, setStep] = useState(1);
+  const [reviewed, setReviewed] = useState(true);
+
+  useEffect(() => {
+    if (isAssistantEnabled()) setVisible(true);
+    setReviewed(isMonthReviewed(cm));
+  }, [cm]);
+
+  if (!visible) return null;
+
+  /* ----- Données dérivées (mois courant) ----- */
+  const inMonth = (d: string) => (d ?? "").startsWith(cm);
+  const monthIncome = income.filter((r) => inMonth(r.date));
+  const incomeSum = monthIncome.reduce((s, r) => s + r.amount, 0);
+  const variablesSum = variables
+    .filter((v) => inMonth(v.date))
+    .reduce((s, v) => s + v.amount, 0);
+  const paidCharges = charges.reduce((s, c) => {
+    const st = chargeState(c.id, cm, c.amount);
+    return s + (st.paid ? st.amount : 0);
+  }, 0);
+  const unpaidCharges = charges.reduce((s, c) => {
+    const st = chargeState(c.id, cm, c.amount);
+    return s + (st.paid ? 0 : st.amount);
+  }, 0);
+  const savingsSum = accounts.reduce((s, a) => s + a.added, 0);
+  const available = incomeSum - paidCharges - variablesSum - savingsSum;
+
+  // Mois précédent (base pour reprendre les revenus).
+  const [yy, mm] = cm.split("-").map(Number);
+  const prev = new Date(yy, mm - 2, 1);
+  const pm = `${prev.getFullYear()}-${pad2(prev.getMonth() + 1)}`;
+  const lastMonthIncome = income.filter((r) => (r.date ?? "").startsWith(pm));
+
+  const typeLabel = (id: string) =>
+    incomeTypes.find((t) => t.id === id)?.label ?? "Revenu";
+
+  /* ----- Actions ----- */
+  function skip() {
+    setScreen("home");
+    setStep(1);
+    setVisible(false);
+  }
+  function chooseAdd(type: "depense" | "charge" | "revenu") {
+    openSheet(undefined, type);
+    setVisible(false);
+  }
+  function reprendreRevenus() {
+    for (const r of lastMonthIncome) {
+      addIncome({
+        label: r.label,
+        source: r.source,
+        icon: r.icon,
+        typeId: r.typeId,
+        amount: r.amount,
+        date: `${cm}-01`,
+      });
+    }
+  }
+  function finishMonth() {
+    markMonthReviewed(cm);
+    setReviewed(true);
+    setScreen("home");
+    setStep(1);
+    setVisible(false);
+    router.push("/");
+  }
+
+  /* ----- Rendu ----- */
+  return (
+    <div className="fixed inset-0 z-30 bg-background">
+      <div className="mx-auto flex h-full w-full max-w-[440px] flex-col overflow-y-auto px-5 pb-10 pt-12">
+        {screen === "home" && (
+          <div className="flex flex-1 flex-col">
+            <header className="mb-6">
+              <p className="text-[13px] font-medium text-graphite/55">Bonjour Rin 👋</p>
+              <h1 className="font-display text-2xl font-extrabold text-graphite">
+                Que souhaites-tu faire&nbsp;?
+              </h1>
+            </header>
+
+            <div className="flex flex-col gap-3">
+              <AssistantCard
+                icon="➕"
+                title="Ajouter un montant"
+                subtitle="Dépense, charge ou revenu"
+                onClick={() => setScreen("add")}
+              />
+              <AssistantCard
+                icon="👀"
+                title="Consulter"
+                subtitle="Ce qu'il te reste, ce qui va partir"
+                onClick={() => setScreen("consult")}
+              />
+              <AssistantCard
+                icon="🗓️"
+                title="Mettre à jour le mois"
+                subtitle="Revenus, charges et budgets prévus"
+                badge={!reviewed ? "à faire" : undefined}
+                onClick={() => {
+                  setStep(1);
+                  setScreen("month");
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={skip}
+              className="mt-auto self-center rounded-full px-6 py-3 text-sm font-semibold text-graphite/55 transition active:scale-95"
+            >
+              Passer →
+            </button>
+          </div>
+        )}
+
+        {screen === "add" && (
+          <div className="flex flex-1 flex-col">
+            <BackButton onClick={() => setScreen("home")} />
+            <h1 className="mb-6 font-display text-2xl font-extrabold text-graphite">
+              Ajouter…
+            </h1>
+            <div className="flex flex-col gap-3">
+              <AssistantCard
+                icon="💸"
+                title="Une dépense"
+                subtitle="Courses, resto, shopping…"
+                onClick={() => chooseAdd("depense")}
+              />
+              <AssistantCard
+                icon="🏠"
+                title="Une charge fixe"
+                subtitle="Loyer, abonnement…"
+                onClick={() => chooseAdd("charge")}
+              />
+              <AssistantCard
+                icon="💰"
+                title="Un revenu"
+                subtitle="Salaire, freelance…"
+                onClick={() => chooseAdd("revenu")}
+              />
+            </div>
+          </div>
+        )}
+
+        {screen === "consult" && (
+          <div className="flex flex-1 flex-col">
+            <BackButton onClick={() => setScreen("home")} />
+            <h1 className="mb-5 font-display text-2xl font-extrabold text-graphite">
+              Où en es-tu&nbsp;?
+            </h1>
+
+            <section className="rounded-3xl bg-plum p-5 text-white shadow-lg shadow-plum/20">
+              <p className="text-xs font-medium text-white/55">Il te reste</p>
+              <p className="mt-1 font-display text-4xl font-extrabold leading-none">
+                {formatEuro(available)}
+              </p>
+              <p className="mt-2 text-xs text-white/45">disponibles maintenant</p>
+            </section>
+
+            <div className="mt-3 flex flex-col gap-2">
+              <ConsultRow icon="⚡" label="À payer ce mois" value={formatEuro(unpaidCharges)} />
+              <ConsultRow icon="💰" label="Revenus du mois" value={formatEuro(incomeSum)} />
+              <ConsultRow icon="📤" label="Dépenses du mois" value={formatEuro(paidCharges + variablesSum)} />
+              <ConsultRow icon="🐷" label="Épargne du mois" value={formatEuro(savingsSum)} />
+            </div>
+
+            <div className="mt-6 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setVisible(false);
+                  router.push("/");
+                }}
+                className="rounded-2xl bg-plum py-3.5 text-[15px] font-bold text-white shadow-md shadow-plum/20 transition active:scale-[0.99]"
+              >
+                Voir le détail
+              </button>
+              <button
+                type="button"
+                onClick={() => setScreen("home")}
+                className="rounded-2xl bg-graphite/5 py-3 text-sm font-medium text-graphite/60 transition active:scale-[0.99]"
+              >
+                Retour
+              </button>
+            </div>
+          </div>
+        )}
+
+        {screen === "month" && (
+          <div className="flex flex-1 flex-col">
+            <BackButton
+              onClick={() => (step > 1 ? setStep(step - 1) : setScreen("home"))}
+            />
+
+            {/* Progression */}
+            <div className="mb-4 flex items-center gap-2">
+              {[1, 2, 3].map((n) => (
+                <span
+                  key={n}
+                  className={`h-1.5 flex-1 rounded-full ${
+                    n <= step ? "bg-plum" : "bg-graphite/15"
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-graphite/45">
+              Étape {step}/3
+            </p>
+
+            {step === 1 && (
+              <>
+                <h1 className="mb-4 font-display text-xl font-extrabold text-graphite">
+                  Tes revenus ce mois
+                </h1>
+                {monthIncome.length === 0 && lastMonthIncome.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={reprendreRevenus}
+                    className="mb-3 rounded-xl bg-lavender/30 py-3 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+                  >
+                    ↩︎ Reprendre le mois dernier ({lastMonthIncome.length})
+                  </button>
+                )}
+                <div className="flex flex-col gap-2">
+                  {monthIncome.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+                    >
+                      <span className="text-xl" aria-hidden>
+                        {r.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-graphite">
+                          {r.label}
+                        </p>
+                        <p className="truncate text-[11px] text-graphite/55">
+                          {typeLabel(r.typeId)}
+                        </p>
+                      </div>
+                      <EditableAmount
+                        value={r.amount}
+                        onCommit={(n) => updateIncome(r.id, { amount: n })}
+                        sign="plus"
+                        ariaLabel={`Montant de ${r.label}`}
+                        className="shrink-0 text-sm font-bold text-success"
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Supprimer ${r.label}`}
+                        onClick={() => removeIncome(r.id)}
+                        className="flex size-6 shrink-0 items-center justify-center rounded-full text-graphite/40 transition hover:bg-error/10 hover:text-error"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {monthIncome.length === 0 && lastMonthIncome.length === 0 && (
+                    <p className="py-2 text-center text-xs text-graphite/40">
+                      Aucun revenu pour l&apos;instant.
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openSheet(`${cm}-01`, "revenu")}
+                  className="mt-3 rounded-xl border border-dashed border-plum/30 py-3 text-[13px] font-semibold text-plum"
+                >
+                  + Ajouter un revenu
+                </button>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <h1 className="mb-1 font-display text-xl font-extrabold text-graphite">
+                  Tes charges fixes
+                </h1>
+                <p className="mb-4 text-xs text-graphite/55">
+                  Elles se reportent chaque mois. Ajuste un montant si besoin.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {charges.map((c) => {
+                    const st = chargeState(c.id, cm, c.amount);
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+                      >
+                        <span className="text-xl" aria-hidden>
+                          {c.icon}
+                        </span>
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+                          {c.label}
+                        </p>
+                        <EditableAmount
+                          value={st.amount}
+                          onCommit={(n) => setChargeMonthAmount(c.id, cm, n)}
+                          ariaLabel={`Montant de ${c.label} ce mois`}
+                          className="shrink-0 text-sm font-bold text-graphite"
+                        />
+                      </div>
+                    );
+                  })}
+                  {charges.length === 0 && (
+                    <p className="py-2 text-center text-xs text-graphite/40">
+                      Aucune charge fixe.
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openSheet(undefined, "charge")}
+                  className="mt-3 rounded-xl border border-dashed border-plum/30 py-3 text-[13px] font-semibold text-plum"
+                >
+                  + Ajouter une charge
+                </button>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <h1 className="mb-1 font-display text-xl font-extrabold text-graphite">
+                  Tes budgets prévus
+                </h1>
+                <p className="mb-4 text-xs text-graphite/55">
+                  Le montant prévu par catégorie (modifiable).
+                </p>
+                <div className="flex flex-col gap-2">
+                  {categories
+                    .filter((c) => c.label.toLowerCase() !== "à trier")
+                    .map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+                      >
+                        <span className="text-xl" aria-hidden>
+                          {c.icon}
+                        </span>
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+                          {c.label}
+                        </p>
+                        <EditableAmount
+                          value={c.budget ?? 0}
+                          onCommit={(n) => updateCategory(c.id, { budget: n })}
+                          ariaLabel={`Budget prévu pour ${c.label}`}
+                          className="shrink-0 text-sm font-bold text-violet"
+                        />
+                      </div>
+                    ))}
+                </div>
+              </>
+            )}
+
+            {/* Navigation bas du parcours */}
+            <div className="mt-6 flex flex-col gap-2">
+              {step < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => setStep(step + 1)}
+                  className="rounded-2xl bg-plum py-3.5 text-[15px] font-bold text-white shadow-md shadow-plum/20 transition active:scale-[0.99]"
+                >
+                  {step === 1 ? "Valider les revenus" : "Valider les charges"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={finishMonth}
+                  className="rounded-2xl bg-success py-3.5 text-[15px] font-bold text-white shadow-md transition active:scale-[0.99]"
+                >
+                  C&apos;est à jour ✅
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={skip}
+                className="self-center px-6 py-2 text-sm font-medium text-graphite/45"
+              >
+                Passer
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AssistantCard({
+  icon,
+  title,
+  subtitle,
+  badge,
+  onClick,
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-4 rounded-2xl bg-white p-4 text-left shadow-sm transition active:scale-[0.99]"
+    >
+      <span
+        className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-lavender/30 text-2xl"
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="text-[15px] font-bold text-graphite">{title}</span>
+          {badge && (
+            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-bold text-warning">
+              ● {badge}
+            </span>
+          )}
+        </span>
+        <span className="block truncate text-xs text-graphite/55">{subtitle}</span>
+      </span>
+      <span className="shrink-0 text-graphite/30" aria-hidden>
+        →
+      </span>
+    </button>
+  );
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Retour"
+      className="mb-3 -ml-1 self-start rounded-full px-2 py-1 text-sm font-semibold text-graphite/50 transition active:scale-95"
+    >
+      ‹ Retour
+    </button>
+  );
+}
+
+function ConsultRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
+      <span aria-hidden>{icon}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-graphite/70">
+        {label}
+      </span>
+      <span className="shrink-0 text-sm font-bold text-graphite">{value}</span>
+    </div>
+  );
+}

@@ -30,7 +30,8 @@ export function QuickEntry() {
     addCharge,
   } = useData();
 
-  const { open, initialDate, openSheet, closeSheet } = useQuickEntry();
+  const { open, initialDate, initialType, openSheet, closeSheet } =
+    useQuickEntry();
   const [type, setType] = useState<TypeId>("depense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -62,10 +63,11 @@ export function QuickEntry() {
   useEffect(() => {
     if (open) {
       setDate(initialDate ?? todayISO());
+      if (initialType) setType(initialType);
       const t = setTimeout(() => amountRef.current?.focus(), 250);
       return () => clearTimeout(t);
     }
-  }, [open, initialDate]);
+  }, [open, initialDate, initialType]);
 
   // Réinitialise le glissement à la fermeture.
   useEffect(() => {

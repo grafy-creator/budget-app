@@ -7,6 +7,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
 import { IconPicker } from "@/components/IconPicker";
 import { formatDayOfMonth, formatEuro } from "@/lib/format";
+import { isAssistantEnabled, setAssistantEnabled } from "@/lib/assistant";
 import { createClient } from "@/lib/supabase/client";
 import { useData, type RuleKey } from "@/lib/store";
 
@@ -148,6 +149,14 @@ export function ReglagesView() {
     await createClient().auth.signOut();
     router.replace("/login");
     router.refresh();
+  }
+
+  const [assistantOn, setAssistantOn] = useState(true);
+  useEffect(() => setAssistantOn(isAssistantEnabled()), []);
+  function toggleAssistant() {
+    const v = !assistantOn;
+    setAssistantOn(v);
+    setAssistantEnabled(v);
   }
 
   const [revenuDraft, setRevenuDraft] = useState(String(settings.revenuCible));
@@ -637,6 +646,38 @@ export function ReglagesView() {
               </p>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Assistant */}
+      <section className="flex flex-col gap-2">
+        <SectionTitle>Assistant</SectionTitle>
+        <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-graphite">
+              Assistant à l&apos;ouverture
+            </p>
+            <p className="text-xs text-graphite/55">
+              T&apos;accueille à l&apos;ouverture pour ajouter, consulter ou
+              mettre à jour le mois.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={assistantOn}
+            aria-label="Afficher l'assistant à l'ouverture"
+            onClick={toggleAssistant}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              assistantOn ? "bg-success" : "bg-graphite/20"
+            }`}
+          >
+            <span
+              className={`absolute top-1 size-4 rounded-full bg-white transition-all ${
+                assistantOn ? "left-6" : "left-1"
+              }`}
+            />
+          </button>
         </div>
       </section>
 
