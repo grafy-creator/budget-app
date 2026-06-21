@@ -65,12 +65,12 @@ type Store = {
   updateIncome: (id: string, patch: Partial<IncomeEntry>) => void;
   removeIncome: (id: string) => void;
 
-  addAccount: (data: Omit<SavingsAccount, "id">) => void;
+  addAccount: (data: Omit<SavingsAccount, "id">) => Promise<SavingsAccount | null>;
   updateAccount: (id: string, patch: Partial<SavingsAccount>) => void;
   removeAccount: (id: string) => void;
   addContribution: (id: string, amount: number) => void;
 
-  addCategory: (data: Omit<Category, "id">) => void;
+  addCategory: (data: Omit<Category, "id">) => Promise<Category | null>;
   updateCategory: (id: string, patch: Partial<Category>) => void;
   removeCategory: (id: string) => void;
 
@@ -266,14 +266,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       from: (r: Row) => T,
       setter: React.Dispatch<React.SetStateAction<T[]>>,
       prepend = false,
-    ) => {
+    ): Promise<T | null> => {
       const { data, error } = await db.from(table).insert(row).select().single();
       if (error || !data) {
         if (error) console.error(`insert ${table}`, error.message);
-        return;
+        return null;
       }
       const mapped = from(data);
       setter((l) => (prepend ? [mapped, ...l] : [...l, mapped]));
+      return mapped;
     };
 
     const update = (table: string, id: string, row: Row) => {

@@ -13,6 +13,8 @@ const TYPES = [
 
 type TypeId = (typeof TYPES)[number]["id"];
 
+const A_TRIER = "À trier";
+
 export function QuickEntry() {
   const {
     accounts,
@@ -21,6 +23,8 @@ export function QuickEntry() {
     addVariable,
     addIncome,
     addContribution,
+    addCategory,
+    addAccount,
   } = useData();
 
   const { open, initialDate, openSheet, closeSheet } = useQuickEntry();
@@ -31,15 +35,14 @@ export function QuickEntry() {
   const [accountId, setAccountId] = useState<string | null>(null);
   const [date, setDate] = useState(TODAY_ISO);
   const [note, setNote] = useState("");
+  const [newCat, setNewCat] = useState<string | null>(null); // saisie nouvelle catégorie
+  const [newAcc, setNewAcc] = useState<string | null>(null); // saisie nouveau compte
   const [done, setDone] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
 
   const amountValue = parseFloat(amount.replace(",", "."));
-  const canSubmit =
-    !done &&
-    amountValue > 0 &&
-    (type !== "depense" || category) &&
-    (type !== "epargne" || accountId);
+  // La catégorie / le compte sont OPTIONNELS : seul le montant est requis.
+  const canSubmit = !done && amountValue > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -58,26 +61,12 @@ export function QuickEntry() {
     }
   }, [open, initialDate]);
 
-  // Pré-sélectionne la 1ère catégorie pour une dépense.
-  useEffect(() => {
-    if (type === "depense" && !category && categories[0]) {
-      setCategory(categories[0].id);
-    }
-  }, [type, category, categories]);
-
-  // Pré-sélectionne la 1ère nature de revenu.
+  // Pré-sélectionne la 1ère nature de revenu (toujours au moins une).
   useEffect(() => {
     if (type === "revenu" && !typeId && incomeTypes[0]) {
       setTypeId(incomeTypes[0].id);
     }
   }, [type, typeId, incomeTypes]);
-
-  // Pré-sélectionne le 1er compte pour un versement d'épargne.
-  useEffect(() => {
-    if (type === "epargne" && !accountId && accounts[0]) {
-      setAccountId(accounts[0].id);
-    }
-  }, [type, accountId, accounts]);
 
   function reset() {
     setType("depense");
@@ -87,14 +76,73 @@ export function QuickEntry() {
     setAccountId(null);
     setDate(TODAY_ISO);
     setNote("");
+    setNewCat(null);
+    setNewAcc(null);
     setDone(false);
   }
 
-  function submit() {
+  // Crée une catégorie depuis la saisie et la sélectionne.
+  async function createCategory() {
+    const label = (newCat ?? "").trim();
+    if (!label) return;
+    const created = await addCategory({ label, icon: "🏷️" });
+    if (created) setCategory(created.id);
+    setNewCat(null);
+  }
+
+  async function createAccount() {
+    const label = (newAcc ?? "").trim();
+    if (!label) return;
+    const created = await addAccount({
+      label,
+      icon: "🐷",
+      before: 0,
+      added: 0,
+      balance: 0,
+      goal: 0,
+      projection: "",
+    });
+    if (created) setAccountId(created.id);
+    setNewAcc(null);
+  }
+
+  // Repli « À trier » : retourne la catégorie à utiliser (existante, choisie, ou créée).
+  async function resolveCategory() {
+    if (category) {
+      const c = categories.find((x) => x.id === category);
+      if (c) return { id: c.id, icon: c.icon, label: c.label };
+    }
+    const existing = categories.find(
+      (c) => c.label.toLowerCase() === A_TRIER.toLowerCase(),
+    );
+    if (existing) return { id: existing.id, icon: existing.icon, label: existing.label };
+    const created = await addCategory({ label: A_TRIER, icon: "🗂️" });
+    return { id: created?.id, icon: "🗂️", label: A_TRIER };
+  }
+
+  async function resolveAccountId() {
+    if (accountId) return accountId;
+    const existing = accounts.find(
+      (a) => a.label.toLowerCase() === A_TRIER.toLowerCase(),
+    );
+    if (existing) return existing.id;
+    const created = await addAccount({
+      label: A_TRIER,
+      icon: "🗂️",
+      before: 0,
+      added: 0,
+      balance: 0,
+      goal: 0,
+      projection: "",
+    });
+    return created?.id;
+  }
+
+  async function submit() {
     if (!canSubmit) return;
 
     if (type === "depense") {
-      const cat = categories.find((c) => c.id === category)!;
+      const cat = await resolveCategory();
       addVariable({
         label: note.trim() || cat.label,
         date: date.trim() || "—",
@@ -112,8 +160,9 @@ export function QuickEntry() {
         typeId: typeId || incomeTypes[0]?.id || "",
         icon: "💰",
       });
-    } else if (type === "epargne" && accountId) {
-      addContribution(accountId, amountValue);
+    } else if (type === "epargne") {
+      const accId = await resolveAccountId();
+      if (accId) addContribution(accId, amountValue);
     }
 
     setDone(true);
@@ -239,38 +288,100 @@ export function QuickEntry() {
               />
             </div>
 
-            {/* Catégories (dépense) */}
+            {/* Catégories (dépense) — optionnel, sinon « À trier » */}
             {type === "depense" && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {categories.map((c) => {
-                  const active = category === c.id;
-                  return (
+              <div className="mt-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-graphite/45">
+                    Catégorie (optionnel)
+                  </span>
+                  {category && (
                     <button
-                      key={c.id}
                       type="button"
-                      aria-pressed={active}
-                      onClick={() => setCategory(c.id)}
-                      className={`flex flex-col items-center gap-1 rounded-xl py-3 transition ${
-                        active ? "bg-lavender/40 ring-1 ring-plum/30" : "bg-graphite/5"
-                      }`}
+                      onClick={() => setCategory(null)}
+                      className="text-[11px] font-medium text-graphite/45"
                     >
-                      <span className="text-xl" aria-hidden>
-                        {c.icon}
-                      </span>
-                      <span
-                        className={`text-[11px] ${
-                          active ? "font-bold text-plum" : "text-graphite/60"
+                      Effacer
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {categories.map((c) => {
+                    const active = category === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setCategory(c.id)}
+                        className={`flex flex-col items-center gap-1 rounded-xl py-3 transition ${
+                          active ? "bg-lavender/40 ring-1 ring-plum/30" : "bg-graphite/5"
                         }`}
                       >
-                        {c.label}
+                        <span className="text-xl" aria-hidden>
+                          {c.icon}
+                        </span>
+                        <span
+                          className={`text-[11px] ${
+                            active ? "font-bold text-plum" : "text-graphite/60"
+                          }`}
+                        >
+                          {c.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {newCat === null && (
+                    <button
+                      type="button"
+                      onClick={() => setNewCat("")}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-plum/30 py-3 text-plum"
+                    >
+                      <span className="text-xl" aria-hidden>
+                        ➕
                       </span>
+                      <span className="text-[11px] font-semibold">Nouvelle</span>
                     </button>
-                  );
-                })}
+                  )}
+                </div>
+                {newCat !== null && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={newCat}
+                      onChange={(e) => setNewCat(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") createCategory();
+                        if (e.key === "Escape") setNewCat(null);
+                      }}
+                      placeholder="Nom de la catégorie"
+                      aria-label="Nouvelle catégorie"
+                      className="min-w-0 flex-1 rounded-lg bg-graphite/5 px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={createCategory}
+                      disabled={!newCat.trim()}
+                      className="rounded-lg bg-plum px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+                    >
+                      Créer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewCat(null)}
+                      className="rounded-lg bg-graphite/5 px-3 py-2 text-xs font-medium text-graphite/60"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
+                <p className="text-[11px] text-graphite/45">
+                  Sans choix, la dépense ira dans « À trier ».
+                </p>
               </div>
             )}
 
-            {/* Nature de revenu (gérée dans les Réglages) */}
+            {/* Nature de revenu */}
             {type === "revenu" && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {incomeTypes.map((t) => {
@@ -292,31 +403,71 @@ export function QuickEntry() {
               </div>
             )}
 
-            {/* Compte (épargne) */}
+            {/* Compte (épargne) — optionnel, sinon « À trier » */}
             {type === "epargne" && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {accounts.map((a) => {
-                  const active = accountId === a.id;
-                  return (
+              <div className="mt-3 flex flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {accounts.map((a) => {
+                    const active = accountId === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setAccountId(a.id)}
+                        className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                          active ? "bg-lavender/40 text-plum" : "bg-graphite/5 text-graphite/60"
+                        }`}
+                      >
+                        <span aria-hidden>{a.icon}</span>
+                        {a.label}
+                      </button>
+                    );
+                  })}
+                  {newAcc === null && (
                     <button
-                      key={a.id}
                       type="button"
-                      aria-pressed={active}
-                      onClick={() => setAccountId(a.id)}
-                      className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                        active ? "bg-lavender/40 text-plum" : "bg-graphite/5 text-graphite/60"
-                      }`}
+                      onClick={() => setNewAcc("")}
+                      className="flex items-center gap-1.5 rounded-xl border border-dashed border-plum/30 px-3 py-2 text-sm font-semibold text-plum"
                     >
-                      <span aria-hidden>{a.icon}</span>
-                      {a.label}
+                      <span aria-hidden>➕</span> Nouveau compte
                     </button>
-                  );
-                })}
-                {accounts.length === 0 && (
-                  <p className="text-xs text-graphite/50">
-                    Crée d&apos;abord un compte dans l&apos;onglet Épargne.
-                  </p>
+                  )}
+                </div>
+                {newAcc !== null && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={newAcc}
+                      onChange={(e) => setNewAcc(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") createAccount();
+                        if (e.key === "Escape") setNewAcc(null);
+                      }}
+                      placeholder="Nom du compte (ex : Livret A)"
+                      aria-label="Nouveau compte"
+                      className="min-w-0 flex-1 rounded-lg bg-graphite/5 px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={createAccount}
+                      disabled={!newAcc.trim()}
+                      className="rounded-lg bg-plum px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+                    >
+                      Créer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewAcc(null)}
+                      className="rounded-lg bg-graphite/5 px-3 py-2 text-xs font-medium text-graphite/60"
+                    >
+                      Annuler
+                    </button>
+                  </div>
                 )}
+                <p className="text-[11px] text-graphite/45">
+                  Sans choix, le versement ira dans « À trier ».
+                </p>
               </div>
             )}
 
