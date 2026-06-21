@@ -11,8 +11,8 @@ const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
 const DOT_CLASS: Record<DotKind, string> = {
   fixe: "bg-plum", // charge fixe — violet foncé
-  variable: "bg-success", // dépense variable — vert (bien distinct du violet)
-  echeance: "bg-warning", // échéance du jour — ambre
+  variable: "bg-[#E0699F]", // dépense variable — rose
+  echeance: "bg-[#E8842E]", // échéance du jour — orange
 };
 
 const LEGEND: { kind: DotKind; label: string }[] = [
