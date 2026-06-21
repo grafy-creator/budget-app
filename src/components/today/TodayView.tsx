@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EditableAmount } from "@/components/EditableAmount";
 import { currentMonthValue } from "@/components/MonthSelector";
-import { formatDayOfMonth, formatEuro, todayLabel } from "@/lib/format";
+import { formatDayOfMonth, formatEuro, todayISO, todayLabel } from "@/lib/format";
 import { useAssistant } from "@/lib/assistantUi";
+import { useQuickEntry } from "@/lib/quickEntry";
 import { ruleTargets, useData } from "@/lib/store";
 
 function SummaryRow({
@@ -61,7 +63,12 @@ export function TodayView() {
     setChargePaid,
     setChargeMonthAmount,
   } = useData();
-  const { open: openAssistant } = useAssistant();
+  const { open: openAssistant, monthReviewed } = useAssistant();
+  const { openSheet } = useQuickEntry();
+
+  // Évite tout décalage SSR/CSR pour les rappels qui dépendent de l'heure.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Tout l'écran « Aujourd'hui » est sur le MOIS COURANT.
   const cm = currentMonthValue();
@@ -111,6 +118,15 @@ export function TodayView() {
   // Projection fin de mois = disponible une fois les charges restantes payées.
   const projection = available - unpaidCharges;
 
+  // Insistance début de mois (1er → fin de 2e semaine, si pas encore fait).
+  const insisting = mounted && !monthReviewed && todayDay <= 14;
+  // Rappel léger du soir (in-app) si activé, après 20h et rien noté aujourd'hui.
+  const loggedToday =
+    variables.some((v) => v.date === todayISO()) ||
+    income.some((r) => r.date === todayISO());
+  const eveningReminder =
+    mounted && settings.reminder && new Date().getHours() >= 20 && !loggedToday;
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <header className="flex items-start justify-between gap-3">
@@ -147,6 +163,34 @@ export function TodayView() {
           </span>
         </div>
       </section>
+
+      {/* Insistance début de mois */}
+      {insisting && (
+        <button
+          type="button"
+          onClick={openAssistant}
+          className="flex items-center gap-2 rounded-xl bg-plum/10 px-3.5 py-2.5 text-xs font-semibold text-plum transition active:scale-[0.99]"
+        >
+          🗓️ Nouveau mois — mets à jour tes chiffres
+          <span className="ml-auto" aria-hidden>
+            →
+          </span>
+        </button>
+      )}
+
+      {/* Rappel léger du soir */}
+      {eveningReminder && (
+        <button
+          type="button"
+          onClick={() => openSheet()}
+          className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3.5 py-2.5 text-xs font-semibold text-graphite/70 transition active:scale-[0.99]"
+        >
+          🌙 Pense à noter ta journée
+          <span className="ml-auto" aria-hidden>
+            +
+          </span>
+        </button>
+      )}
 
       {/* Rappel : dépenses à trier */}
       {aTrierCount > 0 && (

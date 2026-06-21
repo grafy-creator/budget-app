@@ -1,31 +1,46 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { isAssistantEnabled } from "./assistant";
+import { currentMonthValue } from "@/components/MonthSelector";
+import { isAssistantEnabled, isMonthReviewed, markMonthReviewed } from "./assistant";
 
 /**
- * Visibilité de l'assistant d'ouverture, pilotable depuis n'importe où
- * (affiché à l'ouverture si activé, ou rouvert via un bouton « Assistant »).
+ * Visibilité de l'assistant d'ouverture + état « mois mis à jour », pilotables
+ * depuis n'importe où (l'Accueil insiste tant que le mois n'est pas fait ;
+ * l'assistant le met en avant). Partagé pour réagir en direct.
  */
 type AssistantUiCtx = {
   visible: boolean;
   open: () => void;
   close: () => void;
+  monthReviewed: boolean;
+  markReviewed: () => void;
 };
 
 const Ctx = createContext<AssistantUiCtx | null>(null);
 
 export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
+  const [monthReviewed, setMonthReviewed] = useState(true); // true par défaut (évite un flash)
 
-  // À l'ouverture : afficher si l'assistant est activé (préférence locale).
+  // À l'ouverture : afficher si activé + lire si le mois courant est déjà fait.
   useEffect(() => {
     if (isAssistantEnabled()) setVisible(true);
+    setMonthReviewed(isMonthReviewed(currentMonthValue()));
   }, []);
 
   return (
     <Ctx.Provider
-      value={{ visible, open: () => setVisible(true), close: () => setVisible(false) }}
+      value={{
+        visible,
+        open: () => setVisible(true),
+        close: () => setVisible(false),
+        monthReviewed,
+        markReviewed: () => {
+          markMonthReviewed(currentMonthValue());
+          setMonthReviewed(true);
+        },
+      }}
     >
       {children}
     </Ctx.Provider>

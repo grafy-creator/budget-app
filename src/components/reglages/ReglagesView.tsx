@@ -686,8 +686,10 @@ export function ReglagesView() {
         <SectionTitle>Rappels</SectionTitle>
         <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-graphite">Rappel quotidien</p>
-            <p className="text-xs text-graphite/55">Tous les jours à 20:00</p>
+            <p className="text-sm font-semibold text-graphite">Rappel du soir</p>
+            <p className="text-xs text-graphite/55">
+              Si tu ouvres l&apos;app après 20h sans avoir rien noté
+            </p>
           </div>
           <button
             type="button"

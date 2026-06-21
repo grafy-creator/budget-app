@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { EditableAmount } from "@/components/EditableAmount";
 import { currentMonthValue } from "@/components/MonthSelector";
 import { formatDateShort, formatDayOfMonth, formatEuro } from "@/lib/format";
-import { isMonthReviewed, markMonthReviewed } from "@/lib/assistant";
 import { useAssistant } from "@/lib/assistantUi";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
@@ -24,7 +23,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 export function AssistantOverlay() {
   const router = useRouter();
   const { openSheet } = useQuickEntry();
-  const { visible, close } = useAssistant();
+  const { visible, close, monthReviewed, markReviewed } = useAssistant();
   const {
     income,
     charges,
@@ -47,15 +46,14 @@ export function AssistantOverlay() {
   const cm = currentMonthValue();
   const [screen, setScreen] = useState<Screen>("home");
   const [step, setStep] = useState(1);
-  const [reviewed, setReviewed] = useState(true);
   const [newCat, setNewCat] = useState<{ label: string; amount: string } | null>(
     null,
   );
   const [rangeFor, setRangeFor] = useState<string | null>(null); // dépense en cours de rangement
 
-  useEffect(() => {
-    setReviewed(isMonthReviewed(cm));
-  }, [cm]);
+  // Insistance « début de mois » : du 1er à la fin de la 2e semaine, si pas fait.
+  const todayDay = new Date().getDate();
+  const insisting = !monthReviewed && todayDay <= 14;
 
   // À chaque réouverture, repartir de l'écran d'accueil.
   useEffect(() => {
@@ -135,8 +133,7 @@ export function AssistantOverlay() {
     setNewCat(null);
   }
   function finishMonth() {
-    markMonthReviewed(cm);
-    setReviewed(true);
+    markReviewed();
     setScreen("home");
     setStep(1);
     close();
@@ -168,6 +165,33 @@ export function AssistantOverlay() {
               </h1>
             </header>
 
+            {/* Insistance début de mois : carte mise en avant si pas encore fait */}
+            {insisting && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setScreen("month");
+                }}
+                className="mb-3 flex items-center gap-4 rounded-2xl bg-plum p-4 text-left text-white shadow-lg shadow-plum/20 transition active:scale-[0.99]"
+              >
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl" aria-hidden>
+                  🗓️
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-bold">
+                    Nouveau mois — à mettre à jour
+                  </span>
+                  <span className="block text-xs text-white/70">
+                    Revenus, charges et budgets prévus
+                  </span>
+                </span>
+                <span className="shrink-0 text-white/70" aria-hidden>
+                  →
+                </span>
+              </button>
+            )}
+
             <div className="flex flex-col gap-3">
               <AssistantCard
                 icon="➕"
@@ -181,16 +205,18 @@ export function AssistantOverlay() {
                 subtitle="Ce qu'il te reste, ce qui va partir"
                 onClick={() => setScreen("consult")}
               />
-              <AssistantCard
-                icon="🗓️"
-                title="Mettre à jour le mois"
-                subtitle="Revenus, charges et budgets prévus"
-                badge={!reviewed ? "à faire" : undefined}
-                onClick={() => {
-                  setStep(1);
-                  setScreen("month");
-                }}
-              />
+              {!insisting && (
+                <AssistantCard
+                  icon="🗓️"
+                  title="Mettre à jour le mois"
+                  subtitle="Revenus, charges et budgets prévus"
+                  badge={!monthReviewed ? "à faire" : undefined}
+                  onClick={() => {
+                    setStep(1);
+                    setScreen("month");
+                  }}
+                />
+              )}
               <AssistantCard
                 icon="🧹"
                 title="À traiter"
