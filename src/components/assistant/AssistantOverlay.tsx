@@ -4,13 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditableAmount } from "@/components/EditableAmount";
 import { currentMonthValue } from "@/components/MonthSelector";
-import { formatEuro } from "@/lib/format";
+import { formatDateShort, formatDayOfMonth, formatEuro } from "@/lib/format";
 import { isMonthReviewed, markMonthReviewed } from "@/lib/assistant";
 import { useAssistant } from "@/lib/assistantUi";
 import { useData } from "@/lib/store";
 import { useQuickEntry } from "@/lib/quickEntry";
 
-type Screen = "home" | "add" | "consult" | "month" | "todo";
+type Screen =
+  | "home"
+  | "add"
+  | "consult"
+  | "month"
+  | "todo"
+  | "todoPay"
+  | "todoSort";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -139,7 +146,19 @@ export function AssistantOverlay() {
   /* ----- Rendu ----- */
   return (
     <div className="fixed inset-0 z-30 bg-background">
-      <div className="mx-auto flex h-full w-full max-w-[440px] flex-col overflow-y-auto px-5 pb-10 pt-12">
+      <div className="mx-auto flex h-full w-full max-w-[440px] flex-col overflow-y-auto px-5 pb-10">
+        {/* Barre haute : croix pour fermer (toujours visible) */}
+        <div className="sticky top-0 z-10 -mx-5 flex justify-end bg-background/90 px-5 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
+          <button
+            type="button"
+            onClick={skip}
+            aria-label="Fermer l'assistant"
+            className="flex size-9 items-center justify-center rounded-full bg-graphite/5 text-lg text-graphite/55 transition active:scale-90"
+          >
+            ✕
+          </button>
+        </div>
+
         {screen === "home" && (
           <div className="flex flex-1 flex-col">
             <header className="mb-6">
@@ -187,9 +206,9 @@ export function AssistantOverlay() {
             <button
               type="button"
               onClick={skip}
-              className="mt-auto self-center rounded-full px-6 py-3 text-sm font-semibold text-graphite/55 transition active:scale-95"
+              className="mt-auto rounded-2xl border border-graphite/15 py-3 text-sm font-bold text-graphite/60 transition active:scale-[0.99]"
             >
-              Passer →
+              Passer et naviguer seule →
             </button>
           </div>
         )}
@@ -267,6 +286,7 @@ export function AssistantOverlay() {
           </div>
         )}
 
+        {/* À traiter — écran de choix */}
         {screen === "todo" && (
           <div className="flex flex-1 flex-col">
             <BackButton onClick={() => setScreen("home")} />
@@ -274,10 +294,10 @@ export function AssistantOverlay() {
               À traiter
             </h1>
             <p className="mb-5 text-xs text-graphite/55">
-              Tout ce qui reste en attente ce mois, au même endroit.
+              Que veux-tu traiter&nbsp;?
             </p>
 
-            {pendingCount === 0 && (
+            {pendingCount === 0 ? (
               <div className="rounded-2xl bg-success/10 p-5 text-center">
                 <p className="text-2xl" aria-hidden>
                   ✅
@@ -286,109 +306,147 @@ export function AssistantOverlay() {
                   Tout est à jour&nbsp;!
                 </p>
               </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <AssistantCard
+                  icon="💸"
+                  title="Charges à payer"
+                  subtitle="Marquer tes charges du mois comme payées"
+                  badge={toPay.length > 0 ? String(toPay.length) : undefined}
+                  onClick={() => setScreen("todoPay")}
+                />
+                <AssistantCard
+                  icon="🧹"
+                  title="Dépenses à ranger"
+                  subtitle="Classer les dépenses sans catégorie"
+                  badge={toSort.length > 0 ? String(toSort.length) : undefined}
+                  onClick={() => {
+                    setRangeFor(null);
+                    setScreen("todoSort");
+                  }}
+                />
+              </div>
             )}
+          </div>
+        )}
 
-            {toPay.length > 0 && (
-              <section className="mb-4 flex flex-col gap-2">
-                <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
-                  Charges à payer ({toPay.length})
-                </h2>
-                {toPay.map((c) => {
-                  const st = chargeState(c.id, cm, c.amount);
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
-                    >
-                      <span className="text-xl" aria-hidden>
-                        {c.icon}
-                      </span>
-                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+        {/* À traiter — Charges à payer */}
+        {screen === "todoPay" && (
+          <div className="flex flex-1 flex-col">
+            <BackButton onClick={() => setScreen("todo")} />
+            <h1 className="mb-4 font-display text-xl font-extrabold text-graphite">
+              Charges à payer ({toPay.length})
+            </h1>
+            <div className="flex flex-col gap-2">
+              {toPay.map((c) => {
+                const st = chargeState(c.id, cm, c.amount);
+                return (
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-3 rounded-xl bg-white p-2.5 shadow-sm"
+                  >
+                    <span className="text-xl" aria-hidden>
+                      {c.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-graphite">
                         {c.label}
                       </p>
-                      <span className="shrink-0 text-sm font-bold text-graphite">
-                        {formatEuro(st.amount)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setChargePaid(c.id, cm, true)}
-                        className="shrink-0 rounded-full bg-success px-3 py-1.5 text-xs font-bold text-white transition active:scale-95"
-                      >
-                        Payer
-                      </button>
+                      <p className="truncate text-[11px] text-graphite/55">
+                        {formatDayOfMonth(c.dayOfMonth)}
+                      </p>
                     </div>
-                  );
-                })}
-              </section>
-            )}
+                    <span className="shrink-0 text-sm font-bold text-graphite">
+                      {formatEuro(st.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setChargePaid(c.id, cm, true)}
+                      className="shrink-0 rounded-full bg-success px-3 py-1.5 text-xs font-bold text-white transition active:scale-95"
+                    >
+                      Payer
+                    </button>
+                  </div>
+                );
+              })}
+              {toPay.length === 0 && (
+                <div className="rounded-2xl bg-success/10 p-5 text-center text-sm font-semibold text-success">
+                  Toutes les charges sont payées ✅
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-            {toSort.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
-                  Dépenses à ranger ({toSort.length})
-                </h2>
-                {toSort.map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex flex-col gap-2 rounded-xl bg-white p-2.5 shadow-sm"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl" aria-hidden>
-                        {v.icon}
-                      </span>
-                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-graphite">
+        {/* À traiter — Dépenses à ranger */}
+        {screen === "todoSort" && (
+          <div className="flex flex-1 flex-col">
+            <BackButton onClick={() => setScreen("todo")} />
+            <h1 className="mb-4 font-display text-xl font-extrabold text-graphite">
+              Dépenses à ranger ({toSort.length})
+            </h1>
+            <div className="flex flex-col gap-2">
+              {toSort.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex flex-col gap-2 rounded-xl bg-white p-2.5 shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl" aria-hidden>
+                      {v.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-graphite">
                         {v.label}
                       </p>
-                      <span className="shrink-0 text-sm font-bold text-violet">
-                        {formatEuro(v.amount)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRangeFor(rangeFor === v.id ? null : v.id)
-                        }
-                        className="shrink-0 rounded-full bg-lavender/40 px-3 py-1.5 text-xs font-bold text-plum transition active:scale-95"
-                      >
-                        Ranger
-                      </button>
+                      <p className="truncate text-[11px] text-graphite/55">
+                        {formatDateShort(v.date)}
+                      </p>
                     </div>
-                    {rangeFor === v.id && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {realCats.map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => {
-                              updateVariable(v.id, {
-                                categoryId: cat.id,
-                                icon: cat.icon,
-                              });
-                              setRangeFor(null);
-                            }}
-                            className="flex items-center gap-1 rounded-full bg-graphite/5 px-3 py-1.5 text-xs font-semibold text-graphite/70 transition active:scale-95"
-                          >
-                            <span aria-hidden>{cat.icon}</span> {cat.label}
-                          </button>
-                        ))}
-                        {realCats.length === 0 && (
-                          <p className="text-[11px] text-graphite/45">
-                            Crée d&apos;abord une catégorie dans les Réglages.
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <span className="shrink-0 text-sm font-bold text-violet">
+                      {formatEuro(v.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRangeFor(rangeFor === v.id ? null : v.id)}
+                      className="shrink-0 rounded-full bg-lavender/40 px-3 py-1.5 text-xs font-bold text-plum transition active:scale-95"
+                    >
+                      Ranger
+                    </button>
                   </div>
-                ))}
-              </section>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setScreen("home")}
-              className="mt-6 self-center rounded-full px-6 py-3 text-sm font-semibold text-graphite/55"
-            >
-              Retour
-            </button>
+                  {rangeFor === v.id && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {realCats.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            updateVariable(v.id, {
+                              categoryId: cat.id,
+                              icon: cat.icon,
+                            });
+                            setRangeFor(null);
+                          }}
+                          className="flex items-center gap-1 rounded-full bg-graphite/5 px-3 py-1.5 text-xs font-semibold text-graphite/70 transition active:scale-95"
+                        >
+                          <span aria-hidden>{cat.icon}</span> {cat.label}
+                        </button>
+                      ))}
+                      {realCats.length === 0 && (
+                        <p className="text-[11px] text-graphite/45">
+                          Crée d&apos;abord une catégorie dans les Réglages.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {toSort.length === 0 && (
+                <div className="rounded-2xl bg-success/10 p-5 text-center text-sm font-semibold text-success">
+                  Toutes les dépenses sont rangées ✅
+                </div>
+              )}
+            </div>
           </div>
         )}
 
