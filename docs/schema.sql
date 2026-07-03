@@ -110,6 +110,18 @@ create table public.charge_payments (
   unique (charge_id, month)
 );
 
+-- Retraits d'épargne à rembourser (« à rendre ») ---------------------
+create table public.withdrawals (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  amount     numeric(12, 2) not null default 0,
+  date       text not null,                 -- 'YYYY-MM-DD'
+  note       text not null default '',
+  repaid     boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
 -- Réglages (1 ligne par utilisatrice) --------------------------------
 create table public.settings (
   user_id      uuid primary key default auth.uid() references auth.users (id) on delete cascade,
@@ -129,6 +141,7 @@ create index variables_user_idx    on public.variables (user_id, date desc);
 create index income_user_idx       on public.income (user_id, date desc);
 create index accounts_user_idx     on public.accounts (user_id, created_at);
 create index charge_payments_user_idx on public.charge_payments (user_id, month);
+create index withdrawals_user_idx on public.withdrawals (user_id, date desc);
 
 -- ====================================================================
 -- Row Level Security : chacune ne manipule que ses lignes
@@ -140,6 +153,7 @@ alter table public.variables    enable row level security;
 alter table public.income       enable row level security;
 alter table public.accounts     enable row level security;
 alter table public.charge_payments enable row level security;
+alter table public.withdrawals enable row level security;
 alter table public.settings     enable row level security;
 
 create policy "categories_owner" on public.categories
@@ -155,6 +169,8 @@ create policy "income_owner" on public.income
 create policy "accounts_owner" on public.accounts
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "charge_payments_owner" on public.charge_payments
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "withdrawals_owner" on public.withdrawals
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "settings_owner" on public.settings
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
