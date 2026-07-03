@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DeleteButton } from "@/components/DeleteButton";
 import { EditableAmount } from "@/components/EditableAmount";
 import { IconPicker } from "@/components/IconPicker";
-import { formatEuro } from "@/lib/format";
+import { formatEuro, formatDateShort, todayISO } from "@/lib/format";
 import { savings as mockSavings } from "@/lib/mock";
 import { useData } from "@/lib/store";
 
@@ -19,14 +19,29 @@ type AccountForm = {
 };
 
 export function EpargneView() {
-  const { accounts, addAccount, updateAccount, removeAccount, addContribution } =
-    useData();
+  const {
+    accounts,
+    withdrawals,
+    addAccount,
+    updateAccount,
+    removeAccount,
+    addContribution,
+    addWithdrawal,
+    repayWithdrawal,
+    removeWithdrawal,
+  } = useData();
 
   const [form, setForm] = useState<AccountForm | null>(null);
   const [versementFor, setVersementFor] = useState<string | null>(null);
   const [versementAmt, setVersementAmt] = useState("");
+  const [retraitFor, setRetraitFor] = useState<string | null>(null);
+  const [retraitAmt, setRetraitAmt] = useState("");
+  const [retraitDate, setRetraitDate] = useState("");
+  const [retraitNote, setRetraitNote] = useState("");
 
   const total = accounts.reduce((s, a) => s + a.balance, 0);
+  const unpaid = withdrawals.filter((w) => !w.repaid);
+  const toRepay = unpaid.reduce((s, w) => s + w.amount, 0);
 
   function openNew() {
     setForm({ id: null, icon: "🐷", label: "", goal: "", solde: "" });
@@ -74,6 +89,15 @@ export function EpargneView() {
     if (n > 0) addContribution(id, n);
     setVersementFor(null);
     setVersementAmt("");
+  }
+
+  function commitRetrait(id: string) {
+    const n = parseFloat(retraitAmt.replace(",", ".")) || 0;
+    if (n > 0 && retraitDate.trim()) addWithdrawal(id, n, retraitDate, retraitNote.trim());
+    setRetraitFor(null);
+    setRetraitAmt("");
+    setRetraitDate("");
+    setRetraitNote("");
   }
 
   function renderAccountForm() {
@@ -268,7 +292,24 @@ export function EpargneView() {
               </div>
             </div>
 
-            {/* Ajouter un versement */}
+            {(() => {
+              const accToRepay = unpaid
+                .filter((w) => w.accountId === a.id)
+                .reduce((s, w) => s + w.amount, 0);
+              if (accToRepay <= 0) return null;
+              return (
+                <div className="flex items-center justify-between rounded-lg bg-warning/10 px-3 py-2">
+                  <span className="text-[11px] font-semibold text-warning">
+                    ⚠️ À rendre
+                  </span>
+                  <span className="text-sm font-bold text-warning">
+                    {formatEuro(accToRepay)}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Versement / Retrait */}
             {versementFor === a.id ? (
               <div className="flex items-center gap-2">
                 <div className="flex flex-1 items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
@@ -297,17 +338,93 @@ export function EpargneView() {
                   Ajouter
                 </button>
               </div>
+            ) : retraitFor === a.id ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
+                  <input
+                    autoFocus
+                    inputMode="decimal"
+                    value={retraitAmt}
+                    onChange={(e) =>
+                      setRetraitAmt(e.target.value.replace(/[^0-9.,]/g, ""))
+                    }
+                    placeholder="Montant à retirer"
+                    aria-label="Montant du retrait"
+                    className="w-full bg-transparent text-sm font-bold text-graphite outline-none"
+                  />
+                  <span className="text-sm font-bold text-graphite">€</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex flex-1 items-center gap-2 rounded-lg bg-graphite/5 px-3 py-2">
+                    <span className="text-xs font-semibold text-graphite/50">
+                      📅 Date · requise
+                    </span>
+                    <input
+                      type="date"
+                      value={retraitDate}
+                      onChange={(e) => setRetraitDate(e.target.value)}
+                      aria-label="Date du retrait"
+                      className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none [color-scheme:light]"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setRetraitDate(todayISO())}
+                    className="shrink-0 rounded-lg bg-lavender/30 px-3 py-2 text-xs font-bold text-plum transition active:scale-95"
+                  >
+                    Aujourd&apos;hui
+                  </button>
+                </div>
+                <input
+                  value={retraitNote}
+                  onChange={(e) => setRetraitNote(e.target.value)}
+                  placeholder="Note (ex : avance loyer)"
+                  aria-label="Note du retrait"
+                  className="rounded-lg bg-graphite/5 px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRetraitFor(null)}
+                    className="flex-1 rounded-lg bg-graphite/5 py-2 text-sm font-medium text-graphite/60"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => commitRetrait(a.id)}
+                    disabled={!retraitAmt.trim() || !retraitDate.trim()}
+                    className="flex-1 rounded-lg bg-plum py-2 text-sm font-bold text-white disabled:opacity-40"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setVersementFor(a.id);
-                  setVersementAmt("");
-                }}
-                className="rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
-              >
-                + Ajouter un versement
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVersementFor(a.id);
+                    setVersementAmt("");
+                  }}
+                  className="flex-1 rounded-lg bg-lavender/30 py-2.5 text-[13px] font-semibold text-plum transition active:scale-[0.99]"
+                >
+                  + Versement
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRetraitFor(a.id);
+                    setRetraitAmt("");
+                    setRetraitDate("");
+                    setRetraitNote("");
+                  }}
+                  className="flex-1 rounded-lg bg-graphite/5 py-2.5 text-[13px] font-semibold text-graphite/70 transition active:scale-[0.99]"
+                >
+                  − Retrait
+                </button>
+              </div>
             )}
           </section>
         );
@@ -317,6 +434,53 @@ export function EpargneView() {
         <p className="rounded-xl bg-lavender/25 px-3.5 py-3 text-center text-xs font-medium text-plum">
           Aucun compte d&apos;épargne. Ajoute-en un avec « + Compte ».
         </p>
+      )}
+
+      {/* À rendre — retraits non remboursés */}
+      {unpaid.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-graphite">💸 À rendre</h2>
+            <span className="font-display text-xl font-extrabold text-warning">
+              {formatEuro(toRepay)}
+            </span>
+          </div>
+          <p className="text-[11px] text-graphite/55">
+            Argent retiré de ton épargne, à remettre.
+          </p>
+          <div className="flex flex-col gap-2">
+            {unpaid.map((w) => {
+              const acc = accounts.find((x) => x.id === w.accountId);
+              return (
+                <div
+                  key={w.id}
+                  className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-graphite">
+                      {formatEuro(w.amount)} · {acc?.label ?? "Compte"}
+                    </p>
+                    <p className="truncate text-[11px] text-graphite/55">
+                      {formatDateShort(w.date)}
+                      {w.note ? ` · ${w.note}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => repayWithdrawal(w.id)}
+                    className="shrink-0 rounded-lg bg-success/15 px-3 py-2 text-xs font-bold text-success transition active:scale-95"
+                  >
+                    Rembourser
+                  </button>
+                  <DeleteButton
+                    label={`retrait de ${formatEuro(w.amount)}`}
+                    onClick={() => removeWithdrawal(w.id)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* Simulateur */}
