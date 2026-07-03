@@ -15,6 +15,7 @@ type AccountForm = {
   icon: string;
   label: string;
   goal: string;
+  solde: string; // solde actuel (argent déjà présent)
 };
 
 export function EpargneView() {
@@ -28,26 +29,40 @@ export function EpargneView() {
   const total = accounts.reduce((s, a) => s + a.balance, 0);
 
   function openNew() {
-    setForm({ id: null, icon: "🐷", label: "", goal: "" });
+    setForm({ id: null, icon: "🐷", label: "", goal: "", solde: "" });
   }
   function openEdit(id: string) {
     const a = accounts.find((x) => x.id === id);
     if (!a) return;
-    setForm({ id: a.id, icon: a.icon, label: a.label, goal: String(a.goal ?? "") });
+    setForm({
+      id: a.id,
+      icon: a.icon,
+      label: a.label,
+      goal: String(a.goal ?? ""),
+      solde: String(a.balance ?? ""),
+    });
   }
   function saveForm() {
     if (!form || !form.label.trim()) return;
     const goal = parseFloat(form.goal.replace(",", ".")) || 0;
+    const solde = parseFloat(form.solde.replace(",", ".")) || 0;
     if (form.id) {
-      updateAccount(form.id, { icon: form.icon, label: form.label.trim(), goal });
+      updateAccount(form.id, {
+        icon: form.icon,
+        label: form.label.trim(),
+        goal,
+        balance: solde,
+      });
     } else {
+      // Solde actuel = argent déjà présent : compte dans le total, sans être
+      // un « ajout du mois » (added reste à 0).
       addAccount({
         icon: form.icon,
         label: form.label.trim(),
         goal,
-        before: 0,
+        before: solde,
         added: 0,
-        balance: 0,
+        balance: solde,
         projection: "",
       });
     }
@@ -80,6 +95,23 @@ export function EpargneView() {
           aria-label="Nom du compte"
           className="rounded-lg bg-graphite/5 px-3 py-2 text-sm text-graphite outline-none ring-plum/30 focus:ring-2"
         />
+        <div className="flex items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
+          <span className="text-xs text-graphite/55">Solde actuel</span>
+          <input
+            inputMode="decimal"
+            value={form.solde}
+            onChange={(e) =>
+              setForm({ ...form, solde: e.target.value.replace(/[^0-9.,]/g, "") })
+            }
+            placeholder="0"
+            aria-label="Solde actuel"
+            className="ml-auto w-20 bg-transparent text-right text-sm font-bold text-graphite outline-none"
+          />
+          <span className="text-sm font-bold text-graphite">€</span>
+        </div>
+        <p className="text-[11px] text-graphite/55">
+          L&apos;argent déjà présent. Il compte dans le total sans être un « ajout du mois ».
+        </p>
         <div className="flex items-center gap-1 rounded-lg bg-graphite/5 px-3 py-2">
           <span className="text-xs text-graphite/55">Objectif</span>
           <input
