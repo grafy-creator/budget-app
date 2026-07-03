@@ -48,8 +48,11 @@ export function QuickEntry() {
   const amountRef = useRef<HTMLInputElement>(null);
 
   const amountValue = parseFloat(amount.replace(",", "."));
-  // La catégorie / le compte sont OPTIONNELS : seul le montant est requis.
-  const canSubmit = !done && amountValue > 0;
+  // Date obligatoire pour les opérations datées (dépense / revenu).
+  const dateRequired = type === "depense" || type === "revenu";
+  // La catégorie / le compte sont OPTIONNELS : montant requis, date requise si datée.
+  const canSubmit =
+    !done && amountValue > 0 && (!dateRequired || date.trim() !== "");
 
   useEffect(() => {
     if (!open) return;
@@ -62,7 +65,7 @@ export function QuickEntry() {
 
   useEffect(() => {
     if (open) {
-      setDate(initialDate ?? todayISO());
+      setDate(initialDate ?? "");
       if (initialType) setType(initialType);
       const t = setTimeout(() => amountRef.current?.focus(), 250);
       return () => clearTimeout(t);
@@ -103,7 +106,7 @@ export function QuickEntry() {
     setTypeId("");
     setAccountId(null);
     setChargeDay(1);
-    setDate(todayISO());
+    setDate("");
     setNote("");
     setNewCat(null);
     setNewAcc(null);
@@ -328,16 +331,27 @@ export function QuickEntry() {
               {type === "charge" ? (
                 <DayOfMonthPicker value={chargeDay} onChange={setChargeDay} />
               ) : (
-                <label className="flex items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2.5">
-                  <span className="text-xs font-semibold text-graphite/50">📅 Date</span>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    aria-label="Date"
-                    className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none [color-scheme:light]"
-                  />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex flex-1 items-center gap-2 rounded-xl bg-graphite/5 px-3 py-2.5">
+                    <span className="text-xs font-semibold text-graphite/50">
+                      📅 Date{dateRequired ? " · requise" : ""}
+                    </span>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      aria-label="Date"
+                      className="min-w-0 flex-1 bg-transparent text-right text-sm text-graphite outline-none [color-scheme:light]"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setDate(todayISO())}
+                    className="shrink-0 rounded-xl bg-lavender/30 px-3 py-2.5 text-xs font-bold text-plum transition active:scale-95"
+                  >
+                    Aujourd&apos;hui
+                  </button>
+                </div>
               )}
               <input
                 value={note}

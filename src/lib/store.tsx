@@ -18,6 +18,7 @@ import type {
   Category,
   IncomeType,
   ChargePayment,
+  Withdrawal,
 } from "./mock";
 
 /**
@@ -79,6 +80,16 @@ type Store = {
   updateAccount: (id: string, patch: Partial<SavingsAccount>) => void;
   removeAccount: (id: string) => void;
   addContribution: (id: string, amount: number) => void;
+
+  withdrawals: Withdrawal[];
+  addWithdrawal: (
+    accountId: string,
+    amount: number,
+    date: string,
+    note: string,
+  ) => void;
+  repayWithdrawal: (id: string) => void;
+  removeWithdrawal: (id: string) => void;
 
   addCategory: (data: Omit<Category, "id">) => Promise<Category | null>;
   updateCategory: (id: string, patch: Partial<Category>) => void;
@@ -153,6 +164,14 @@ const fromAccount = (r: Row): SavingsAccount => ({
   goal: num(r.goal),
   projection: (r.projection as string) ?? "",
 });
+const fromWithdrawal = (r: Row): Withdrawal => ({
+  id: r.id as string,
+  accountId: r.account_id as string,
+  amount: num(r.amount),
+  date: r.date as string,
+  note: (r.note as string) ?? "",
+  repaid: Boolean(r.repaid),
+});
 
 /* Modèle app → colonnes Supabase (uniquement les champs fournis) ---- */
 function chargeToRow(p: Partial<FixedCharge>): Row {
@@ -207,6 +226,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [variables, setVariables] = useState<VariableExpense[]>([]);
   const [income, setIncome] = useState<IncomeEntry[]>([]);
   const [accounts, setAccounts] = useState<SavingsAccount[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [incomeTypes, setIncomeTypes] = useState<IncomeType[]>([]);
   const [payments, setPayments] = useState<Record<string, PaymentState>>({});
@@ -224,7 +244,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       userId.current = user.id;
 
-      const [cat, it, ch, va, inc, acc, pay, set] = await Promise.all([
+      const [cat, it, ch, va, inc, acc, pay, wd, set] = await Promise.all([
         supabase.from("categories").select("*").order("created_at"),
         supabase.from("income_types").select("*").order("created_at"),
         supabase.from("charges").select("*").order("created_at"),
@@ -232,6 +252,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabase.from("income").select("*").order("date", { ascending: false }),
         supabase.from("accounts").select("*").order("created_at"),
         supabase.from("charge_payments").select("*"),
+        supabase.from("withdrawals").select("*").order("date", { ascending: false }),
         supabase.from("settings").select("*").maybeSingle(),
       ]);
 
@@ -242,6 +263,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVariables((va.data ?? []).map(fromVariable));
       setIncome((inc.data ?? []).map(fromIncome));
       setAccounts((acc.data ?? []).map(fromAccount));
+      setWithdrawals((wd.data ?? []).map(fromWithdrawal));
       {
         const map: Record<string, PaymentState> = {};
         for (const r of (pay.data ?? []) as Row[]) {
@@ -377,6 +399,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       variables,
       income,
       accounts,
+      withdrawals,
       categories,
       incomeTypes,
       settings,
@@ -468,6 +491,60 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (next) update("accounts", id, { added: next.added, balance: next.balance });
       },
 
+      // Retraits d'épargne (« à rendre »)
+      addWithdrawal: (accountId, amount, date, note) => {
+        insert(
+          "withdrawals",
+          { account_id: accountId, amount, date, note, repaid: false },
+          fromWithdrawal,
+          setWithdrawals,
+          true,
+        );
+        let next: SavingsAccount | undefined;
+        setAccounts((l) =>
+          l.map((a) => {
+            if (a.id !== accountId) return a;
+            next = { ...a, balance: a.balance - amount };
+            return next;
+          }),
+        );
+        if (next) update("accounts", accountId, { balance: next.balance });
+      },
+      repayWithdrawal: (id) => {
+        const w = withdrawals.find((x) => x.id === id);
+        if (!w || w.repaid) return;
+        setWithdrawals((l) =>
+          l.map((x) => (x.id === id ? { ...x, repaid: true } : x)),
+        );
+        update("withdrawals", id, { repaid: true });
+        let next: SavingsAccount | undefined;
+        setAccounts((l) =>
+          l.map((a) => {
+            if (a.id !== w.accountId) return a;
+            next = { ...a, balance: a.balance + w.amount };
+            return next;
+          }),
+        );
+        if (next) update("accounts", w.accountId, { balance: next.balance });
+      },
+      removeWithdrawal: (id) => {
+        const w = withdrawals.find((x) => x.id === id);
+        if (!w) return;
+        setWithdrawals((l) => l.filter((x) => x.id !== id));
+        remove("withdrawals", id);
+        if (!w.repaid) {
+          let next: SavingsAccount | undefined;
+          setAccounts((l) =>
+            l.map((a) => {
+              if (a.id !== w.accountId) return a;
+              next = { ...a, balance: a.balance + w.amount };
+              return next;
+            }),
+          );
+          if (next) update("accounts", w.accountId, { balance: next.balance });
+        }
+      },
+
       // Catégories
       addCategory: (data) =>
         insert(
@@ -530,6 +607,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     variables,
     income,
     accounts,
+    withdrawals,
     categories,
     incomeTypes,
     payments,
