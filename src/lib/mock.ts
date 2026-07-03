@@ -188,6 +188,16 @@ export type SavingsAccount = {
   projection: string;
 };
 
+// Retrait d'un compte d'épargne vers le compte principal, à rembourser.
+export type Withdrawal = {
+  id: string;
+  accountId: string;
+  amount: number;
+  date: string; // 'YYYY-MM-DD'
+  note: string;
+  repaid: boolean;
+};
+
 export const savings = {
   monthLabel: "Avril 2026",
   total: 4400,
