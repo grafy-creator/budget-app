@@ -12,7 +12,7 @@ function signedEuro(amount: number) {
 }
 
 export function BilanView() {
-  const { income, charges, variables, accounts, settings, chargeState } =
+  const { income, chargesFor, variables, accounts, settings, chargeState } =
     useData();
   const [month, setMonth] = useState(currentMonthValue());
 
@@ -23,7 +23,7 @@ export function BilanView() {
   );
   // Fixes réelles = charges effectivement payées ce mois (montant réel du mois).
   const realFixed = Math.round(
-    charges.reduce((s, c) => {
+    chargesFor(month).reduce((s, c) => {
       const st = chargeState(c.id, month, c.amount);
       return s + (st.paid ? st.amount : 0);
     }, 0),

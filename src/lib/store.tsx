@@ -64,7 +64,12 @@ type Store = {
     chargeId: string,
     month: string,
     fallbackAmount: number,
-  ) => { paid: boolean; amount: number };
+  ) => { paid: boolean; amount: number; skipped: boolean };
+  /** Charges fixes du mois (hors celles retirées pour ce mois uniquement). */
+  chargesFor: (month: string) => FixedCharge[];
+  /** Charges retirées pour ce mois uniquement (restent actives les autres mois). */
+  skippedChargesFor: (month: string) => FixedCharge[];
+  setChargeSkipped: (chargeId: string, month: string, skipped: boolean) => void;
   setChargePaid: (chargeId: string, month: string, paid: boolean) => void;
   setChargeMonthAmount: (chargeId: string, month: string, amount: number) => void;
 
@@ -113,7 +118,7 @@ const num = (v: unknown) => Number(v ?? 0);
 
 /** Clé locale d'un paiement de charge (charge + mois). */
 const payKey = (chargeId: string, month: string) => `${chargeId}|${month}`;
-type PaymentState = { paid: boolean; amount: number | null };
+type PaymentState = { paid: boolean; amount: number | null; skipped?: boolean };
 
 type Row = Record<string, unknown>;
 
@@ -270,6 +275,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           map[payKey(r.charge_id as string, r.month as string)] = {
             paid: Boolean(r.paid),
             amount: r.amount == null ? null : num(r.amount),
+            skipped: Boolean(r.skipped),
           };
         }
         setPayments(map);
@@ -367,6 +373,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             month,
             paid: patch.paid,
             amount: patch.amount,
+            // Colonne ajoutée par la migration 004 : n'est envoyée que si utile,
+            // pour ne pas casser le paiement tant que la migration n'est pas faite.
+            ...(patch.skipped !== undefined ? { skipped: patch.skipped } : {}),
           },
           { onConflict: "charge_id,month" },
         )
@@ -422,7 +431,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return {
           paid: p?.paid ?? false,
           amount: p?.amount ?? fallbackAmount,
+          skipped: p?.skipped ?? false,
         };
+      },
+      chargesFor: (month) =>
+        charges.filter((c) => !payments[payKey(c.id, month)]?.skipped),
+      skippedChargesFor: (month) =>
+        charges.filter((c) => payments[payKey(c.id, month)]?.skipped),
+      setChargeSkipped: (chargeId, month, skipped) => {
+        const key = payKey(chargeId, month);
+        const next: PaymentState = {
+          paid: payments[key]?.paid ?? false,
+          amount: payments[key]?.amount ?? null,
+          skipped,
+        };
+        setPayments((m) => ({ ...m, [key]: next }));
+        upsertPayment(chargeId, month, next);
       },
       // …et écriture (mise à jour optimiste + upsert).
       setChargePaid: (chargeId, month, paid) => {
@@ -430,6 +454,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const next: PaymentState = {
           paid,
           amount: payments[key]?.amount ?? null,
+          skipped: payments[key]?.skipped,
         };
         setPayments((m) => ({ ...m, [key]: next }));
         upsertPayment(chargeId, month, next);
@@ -439,6 +464,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const next: PaymentState = {
           paid: payments[key]?.paid ?? false,
           amount,
+          skipped: payments[key]?.skipped,
         };
         setPayments((m) => ({ ...m, [key]: next }));
         upsertPayment(chargeId, month, next);

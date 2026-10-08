@@ -53,7 +53,7 @@ function SummaryRow({
 
 export function TodayView() {
   const {
-    charges,
+    chargesFor,
     variables,
     income,
     accounts,
@@ -82,7 +82,7 @@ export function TodayView() {
   }).length;
 
   // Charges du mois courant avec leur statut payé / montant réel.
-  const monthCharges = charges.map((c) => ({
+  const monthCharges = chargesFor(cm).map((c) => ({
     charge: c,
     ...chargeState(c.id, cm, c.amount),
   }));
@@ -288,6 +288,24 @@ export function TodayView() {
             barClass="bg-violet"
             amountClass="text-graphite"
           />
+          {/* Détail réel des dépenses : charges fixes (toutes celles du mois) + variables */}
+          <dl className="-mt-2 flex flex-col gap-1 border-l-2 border-graphite/10 pl-3 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-graphite/60">🏠 Charges fixes</dt>
+              <dd className="shrink-0 font-semibold text-graphite">
+                {formatEuro(paidCharges + unpaidCharges)}
+                <span className="ml-1 font-normal text-graphite/45">
+                  (dont {formatEuro(paidCharges)} payés)
+                </span>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-graphite/60">🛒 Charges variables</dt>
+              <dd className="shrink-0 font-semibold text-graphite">
+                {formatEuro(variablesSum)}
+              </dd>
+            </div>
+          </dl>
           <SummaryRow
             icon="🐷"
             label="Épargne"

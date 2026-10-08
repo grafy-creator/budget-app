@@ -106,6 +106,7 @@ create table public.charge_payments (
   month      text not null,                 -- 'YYYY-MM'
   paid       boolean not null default false,
   amount     numeric(10, 2),                -- montant réel ce mois ; null = montant du modèle
+  skipped    boolean not null default false, -- retirée pour ce mois uniquement
   created_at timestamptz not null default now(),
   unique (charge_id, month)
 );

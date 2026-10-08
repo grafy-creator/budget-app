@@ -96,7 +96,9 @@ export function BudgetView() {
     settings,
     addCharge,
     updateCharge,
-    removeCharge,
+    chargesFor,
+    skippedChargesFor,
+    setChargeSkipped,
     addVariable,
     updateVariable,
     removeVariable,
@@ -129,7 +131,12 @@ export function BudgetView() {
       : depFilter === "atrier"
         ? monthVariables.filter(isATrier)
         : monthVariables.filter((v) => v.categoryId === depFilter);
-  const visibleCharges = showAllCharges ? charges : charges.slice(0, PREVIEW);
+  // Charges fixes du mois (hors celles retirées pour ce mois uniquement).
+  const monthCharges = chargesFor(month);
+  const skippedCharges = skippedChargesFor(month);
+  const visibleCharges = showAllCharges
+    ? monthCharges
+    : monthCharges.slice(0, PREVIEW);
   const visibleExpenses = showAllExpenses
     ? filteredVariables
     : filteredVariables.slice(0, PREVIEW);
@@ -216,14 +223,16 @@ export function BudgetView() {
   }
 
   // Fixes du mois : payé = déjà dépensé ; non payé = reste à payer (montant réel du mois).
-  const fixedSpent = charges.reduce((s, c) => {
+  const fixedSpent = monthCharges.reduce((s, c) => {
     const st = chargeState(c.id, month, c.amount);
     return s + (st.paid ? st.amount : 0);
   }, 0);
-  const resteAPayer = charges.reduce((s, c) => {
+  const resteAPayer = monthCharges.reduce((s, c) => {
     const st = chargeState(c.id, month, c.amount);
     return s + (st.paid ? 0 : st.amount);
   }, 0);
+  // Total inscrit (somme des charges du mois) — distinct du prévu 50/30/20.
+  const fixedTotal = fixedSpent + resteAPayer;
   const variableSpent = monthVariables.reduce((s, v) => s + v.amount, 0);
 
   return (
@@ -328,9 +337,20 @@ export function BudgetView() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
-              Charges fixes
-            </h2>
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wide text-graphite/50">
+                Charges fixes
+              </h2>
+              <span
+                className="shrink-0 text-xs font-bold text-graphite"
+                aria-label={`Payé ${formatEuro(fixedSpent)} sur ${formatEuro(fixedTotal)} de charges fixes`}
+              >
+                <span className="text-success">{formatEuro(fixedSpent)}</span>
+                <span className="text-graphite/35"> / </span>
+                {formatEuro(fixedTotal)}
+                <span className="ml-1 font-medium text-graphite/45">payé</span>
+              </span>
+            </div>
 
             {!chargeForm && (
               <button
@@ -414,14 +434,35 @@ export function BudgetView() {
                   >
                     {st.paid ? "✓" : "○"}
                   </button>
-                  <DeleteButton
-                    label={c.label}
-                    onClick={() => removeCharge(c.id)}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setChargeSkipped(c.id, month, true)}
+                    aria-label={`Retirer ${c.label} de ce mois uniquement`}
+                    title="Retirer de ce mois uniquement"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-graphite/40 transition hover:bg-warning/10 hover:text-warning active:scale-90"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="size-[18px]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      aria-hidden
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M8 12h8" />
+                    </svg>
+                  </button>
                 </div>
               );
             })}
-            {charges.length > PREVIEW && (
+            {monthCharges.length === 0 && !chargeForm && (
+              <p className="py-2 text-center text-xs text-graphite/40">
+                Aucune charge fixe ce mois.
+              </p>
+            )}
+            {monthCharges.length > PREVIEW && (
               <button
                 type="button"
                 onClick={() => setShowAllCharges((v) => !v)}
@@ -429,8 +470,32 @@ export function BudgetView() {
               >
                 {showAllCharges
                   ? "Voir moins"
-                  : `Voir plus (${charges.length - PREVIEW})`}
+                  : `Voir plus (${monthCharges.length - PREVIEW})`}
               </button>
+            )}
+
+            {/* Charges retirées pour ce mois uniquement → possibilité de les remettre */}
+            {skippedCharges.length > 0 && (
+              <div className="flex flex-col gap-1.5 rounded-xl bg-graphite/5 p-2.5">
+                <p className="text-[11px] font-semibold text-graphite/55">
+                  Retirées ce mois-ci (toujours actives les autres mois)
+                </p>
+                {skippedCharges.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2">
+                    <span aria-hidden>{c.icon}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-graphite/60 line-through">
+                      {c.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setChargeSkipped(c.id, month, false)}
+                      className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-plum shadow-sm transition active:scale-95"
+                    >
+                      Remettre
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
 
@@ -553,7 +618,7 @@ export function BudgetView() {
         </>
       )}
 
-      {tab === "Revenus" && <RevenusTab />}
+      {tab === "Revenus" && <RevenusTab month={month} />}
 
       {tab === "Épargne" && <EpargneTab />}
     </div>
@@ -584,10 +649,17 @@ type IncomeForm = {
 };
 
 /** Onglet Revenus : répartition par nature (natures gérées dans les Réglages). */
-function RevenusTab() {
-  const { income, incomeTypes, addIncome, updateIncome, removeIncome } =
-    useData();
+function RevenusTab({ month }: { month: string }) {
+  const {
+    income: allIncome,
+    incomeTypes,
+    addIncome,
+    updateIncome,
+    removeIncome,
+  } = useData();
   const [form, setForm] = useState<IncomeForm | null>(null);
+  // Revenus du mois sélectionné uniquement (ils sont datés).
+  const income = allIncome.filter((r) => (r.date ?? "").startsWith(month));
 
   const grandTotal = income.reduce((s, r) => s + r.amount, 0);
   const total = grandTotal || 1;
@@ -617,7 +689,7 @@ function RevenusTab() {
     });
   }
   function openEdit(id: string) {
-    const r = income.find((x) => x.id === id);
+    const r = allIncome.find((x) => x.id === id);
     if (!r) return;
     setForm({
       id: r.id,
@@ -761,7 +833,7 @@ function RevenusTab() {
         })}
         {income.length === 0 && !form && (
           <p className="py-2 text-center text-xs text-graphite/40">
-            Aucun revenu. Ajoute-en un avec le bouton ci-dessus.
+            Aucun revenu ce mois. Ajoute-en un avec le bouton ci-dessus.
           </p>
         )}
       </section>

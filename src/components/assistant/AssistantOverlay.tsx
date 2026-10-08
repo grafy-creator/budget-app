@@ -26,7 +26,7 @@ export function AssistantOverlay() {
   const { visible, close, monthReviewed, markReviewed } = useAssistant();
   const {
     income,
-    charges,
+    chargesFor,
     variables,
     accounts,
     settings,
@@ -68,6 +68,8 @@ export function AssistantOverlay() {
   if (!visible) return null;
 
   /* ----- Données dérivées (mois courant) ----- */
+  // Charges du mois courant (hors celles retirées pour ce mois uniquement).
+  const charges = chargesFor(cm);
   const inMonth = (d: string) => (d ?? "").startsWith(cm);
   const monthIncome = income.filter((r) => inMonth(r.date));
   const incomeSum = monthIncome.reduce((s, r) => s + r.amount, 0);

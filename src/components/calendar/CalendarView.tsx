@@ -32,7 +32,7 @@ type DayEntry = {
 };
 
 export function CalendarView() {
-  const { variables, charges, chargeState, setChargePaid } = useData();
+  const { variables, chargesFor, chargeState, setChargePaid } = useData();
   const { openSheet } = useQuickEntry();
 
   const [monthPrefix, setMonthPrefix] = useState(currentMonthValue());
@@ -92,7 +92,7 @@ export function CalendarView() {
         dot: "variable",
       });
   }
-  for (const c of charges) {
+  for (const c of chargesFor(monthPrefix)) {
     const d = c.dayOfMonth;
     if (d) {
       const st = chargeState(c.id, monthPrefix, c.amount);
